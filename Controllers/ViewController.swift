@@ -127,6 +127,35 @@ class ViewController:
     var editorContentSplitView: EditorContentSplitView?
     var previewScrollView: EditorScrollView?
     nonisolated(unsafe) var splitScrollObserver: NSObjectProtocol?
+    // Split scroll sync is intentionally coalesced into short bursts instead
+    // of mirroring every single NSClipView bounds change immediately. Without
+    // this buffer, a fast trackpad scroll produces a dense stream of native ->
+    // WebKit bridge calls, which makes the preview feel like it is "chasing"
+    // the editor rather than gliding with it.
+    nonisolated(unsafe) var splitScrollSyncWorkItem: DispatchWorkItem?
+    // While a coalesced sync work item is waiting to fire, keep only the most
+    // recent editor top-line value. This turns a storm of intermediate scroll
+    // samples into one latest-state update, which is exactly what the preview
+    // needs to catch up visually.
+    var pendingSplitScrollLine: CGFloat?
+    // Ratio-based coarse sync target used while the user is actively
+    // scrolling the editor. A ratio is much cheaper for the preview to apply
+    // than a line-accurate anchor lookup, so we use it for the "keep up"
+    // phase and reserve line sync for the later correction pass.
+    var pendingSplitScrollRatio: CGFloat?
+    // Idle alignment task: once the editor scroll gesture has paused for a
+    // short moment, this task performs one final precise line-based sync so
+    // the preview lands exactly where the editor stopped.
+    nonisolated(unsafe) var splitScrollIdleWorkItem: DispatchWorkItem?
+    // Track the last coarse ratio we actually pushed into the preview. This
+    // lets us skip tiny ratio changes that would not be visible but would
+    // still cost a native -> WebKit bridge hop.
+    var lastCoarseSyncedPreviewRatio: CGFloat = -1
+    // Timestamp (seconds since 1970) until which preview -> editor callbacks
+    // should be treated as part of an ongoing editor-driven gesture. While
+    // this window is active, the preview is "following", so we ignore its
+    // feedback and avoid the two panes tugging against each other.
+    var splitScrollEditorGestureActiveUntil: TimeInterval = 0
     var splitScrollSuppressionCount: Int = 0
     var activeSplitScrollSource: SplitScrollSource = .editor
     var lastSyncedLine: CGFloat = -1

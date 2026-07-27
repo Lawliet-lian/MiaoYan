@@ -234,6 +234,12 @@ class MPreviewView: WKWebView, WKUIDelegate {
                     var rebuildTimer = null;
                     var rafId = null;
                     var lastReportedLine = -1;
+                    // Preview -> native scroll callbacks are only used to keep
+                    // the editor roughly aligned while the user drags the
+                    // preview. Reporting every sub-line movement makes the
+                    // native side spend time on imperceptible corrections, so
+                    // keep a wider threshold and let obvious movement through.
+                    var reportLineDeltaThreshold = 0.75;
 
                     function rebuildAnchors() {
                         var els = document.querySelectorAll('[data-sourcepos]');
@@ -314,7 +320,7 @@ class MPreviewView: WKWebView, WKUIDelegate {
                             rafId = null;
                             var scrollY = window.pageYOffset || 0;
                             var line = lineForScroll(scrollY);
-                            if (Math.abs(line - lastReportedLine) > 0.1) {
+                            if (Math.abs(line - lastReportedLine) > reportLineDeltaThreshold) {
                                 window.webkit.messageHandlers.previewScroll.postMessage({ line: line });
                                 lastReportedLine = line;
                             }

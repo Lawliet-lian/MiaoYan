@@ -64,10 +64,26 @@ extension ViewController {
         // the fixed delay so the toast appears slightly after the mode
         // visually settles rather than overlapping it.
         static let presentationLayoutDelay: TimeInterval = 0.15
+        // Coalesce a burst of editor scroll notifications into one preview
+        // update. 33ms keeps the preview responsive enough for finger/trackpad
+        // scrolling while cutting the JS bridge traffic roughly to ~30fps.
+        static let splitScrollSyncCoalescingDelay: TimeInterval = 0.033
+        // When the editor has been quiet for this long, we treat the current
+        // scroll gesture as finished and run one exact line-based alignment to
+        // replace the lighter ratio-based tracking used during the gesture.
+        static let splitScrollIdleAlignmentDelay: TimeInterval = 0.12
         // Split-view scroll sync coalesce window. WebKit fires its scroll
         // events on a ~60fps cadence; this delay clears the pending sync
         // request after JS rendering is likely complete.
         static let splitScrollSyncDelay: TimeInterval = 0.05
+        // Do not spend a WebKit bridge call on tiny line changes that are
+        // below the threshold most users can perceive during a continuous
+        // scroll gesture. We still re-align on the next larger movement.
+        static let splitScrollMinimumLineDelta: CGFloat = 1.0
+        // Coarse ratio tracking can be even looser than line-based sync. A
+        // 1.5% viewport-progress change is enough to keep the preview feeling
+        // attached without hammering WebKit on every micro movement.
+        static let splitScrollMinimumRatioDelta: CGFloat = 0.015
     }
 
     // MARK: - WebView Helper
@@ -1089,6 +1105,14 @@ extension ViewController {
             NotificationCenter.default.removeObserver(observer)
             splitScrollObserver = nil
         }
+        splitScrollSyncWorkItem?.cancel()
+        splitScrollSyncWorkItem = nil
+        splitScrollIdleWorkItem?.cancel()
+        splitScrollIdleWorkItem = nil
+        pendingSplitScrollLine = nil
+        pendingSplitScrollRatio = nil
+        lastCoarseSyncedPreviewRatio = -1
+        splitScrollEditorGestureActiveUntil = 0
         // Clear preview scroll delegate
         editArea.markdownView?.scrollDelegate = nil
         splitScrollSuppressionCount = 0
@@ -1113,6 +1137,13 @@ extension ViewController {
             sessionSplitMode,
             editArea.markdownView?.isUpdatingContent != true
         else { return }
+        // While the editor is the active scroll source, the preview is only
+        // following programmatic updates from native code. Ignoring those
+        // callbacks prevents the two panes from immediately trying to correct
+        // each other in opposite directions.
+        if Date().timeIntervalSince1970 < splitScrollEditorGestureActiveUntil {
+            return
+        }
         activeSplitScrollSource = .preview
         splitScrollSuppressionCount += 1
 
@@ -1159,16 +1190,97 @@ extension ViewController {
 
     private func scheduleSplitScrollSync() {
         guard sessionSplitMode, activeSplitScrollSource == .editor else { return }
-        let topLine = editorTopLine()
-        guard abs(topLine - lastSyncedLine) >= 0.25 else { return }
-        lastSyncedLine = topLine
-        applySplitScrollSync(line: topLine)
+        // Record both precision levels on every editor scroll sample:
+        // - ratio for the cheap "keep up while scrolling" phase
+        // - line for the exact correction once the gesture pauses
+        pendingSplitScrollLine = editorTopLine()
+        pendingSplitScrollRatio = getScrollTop()
+        splitScrollEditorGestureActiveUntil = Date().timeIntervalSince1970 + EditorTiming.splitScrollIdleAlignmentDelay
+
+        scheduleSplitScrollIdleAlignment()
+
+        guard splitScrollSyncWorkItem == nil else { return }
+
+        let workItem = DispatchWorkItem { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.splitScrollSyncWorkItem = nil
+
+                guard self.sessionSplitMode, self.activeSplitScrollSource == .editor else {
+                    self.pendingSplitScrollLine = nil
+                    self.pendingSplitScrollRatio = nil
+                    return
+                }
+
+                guard let ratio = self.pendingSplitScrollRatio else {
+                    return
+                }
+
+                guard abs(ratio - self.lastCoarseSyncedPreviewRatio) >= EditorTiming.splitScrollMinimumRatioDelta else {
+                    return
+                }
+
+                self.lastCoarseSyncedPreviewRatio = ratio
+                self.applySplitScrollSync(ratio: ratio)
+            }
+        }
+
+        splitScrollSyncWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + EditorTiming.splitScrollSyncCoalescingDelay, execute: workItem)
     }
 
-    private func applySplitScrollSync(line: CGFloat) {
+    private func scheduleSplitScrollIdleAlignment() {
+        splitScrollIdleWorkItem?.cancel()
+
+        let workItem = DispatchWorkItem { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.splitScrollIdleWorkItem = nil
+
+                guard self.sessionSplitMode, self.activeSplitScrollSource == .editor else {
+                    self.pendingSplitScrollLine = nil
+                    self.pendingSplitScrollRatio = nil
+                    return
+                }
+
+                guard let line = self.pendingSplitScrollLine else { return }
+                let fallbackRatio = self.pendingSplitScrollRatio ?? self.getScrollTop()
+                self.pendingSplitScrollLine = nil
+                self.pendingSplitScrollRatio = nil
+                self.splitScrollEditorGestureActiveUntil = 0
+
+                guard abs(line - self.lastSyncedLine) >= EditorTiming.splitScrollMinimumLineDelta else {
+                    return
+                }
+
+                self.lastSyncedLine = line
+                self.lastCoarseSyncedPreviewRatio = fallbackRatio
+                self.applyPreciseSplitScrollSync(line: line, fallbackRatio: fallbackRatio)
+            }
+        }
+
+        splitScrollIdleWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + EditorTiming.splitScrollIdleAlignmentDelay, execute: workItem)
+    }
+
+    private func applySplitScrollSync(ratio: CGFloat) {
         guard sessionSplitMode else { return }
         splitScrollSuppressionCount += 1
-        editArea.markdownView?.scrollToLine(line)
+        // Ratio sync is intentionally coarse: during an active gesture we want
+        // the preview to feel attached to the editor, but we do not need the
+        // costlier anchor interpolation on every short-lived sample.
+        editArea.markdownView?.scrollToPosition(pre: ratio)
+        DispatchQueue.main.asyncAfter(deadline: .now() + EditorTiming.splitScrollSyncDelay) { [weak self] in
+            self?.splitScrollSuppressionCount = max(0, (self?.splitScrollSuppressionCount ?? 0) - 1)
+        }
+    }
+
+    private func applyPreciseSplitScrollSync(line: CGFloat, fallbackRatio: CGFloat) {
+        guard sessionSplitMode else { return }
+        splitScrollSuppressionCount += 1
+        // Final correction after the gesture ends: restore exact anchor-based
+        // alignment so long documents still land on the intended paragraph.
+        editArea.markdownView?.scrollToLine(line, fallbackRatio: fallbackRatio)
         DispatchQueue.main.asyncAfter(deadline: .now() + EditorTiming.splitScrollSyncDelay) { [weak self] in
             self?.splitScrollSuppressionCount = max(0, (self?.splitScrollSuppressionCount ?? 0) - 1)
         }
