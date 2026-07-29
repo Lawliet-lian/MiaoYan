@@ -20,12 +20,27 @@ class EditorSplitView: ThemedSplitView {
 
     override func awakeFromNib() {
         super.awakeFromNib()
+        applyDragFriendlyHoldingPriorities()
         configureTOCColumnIfNeeded()
     }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        applyDragFriendlyHoldingPriorities()
         configureTOCColumnIfNeeded()
+    }
+
+    /// 三栏 holding priority 必须低于 AppKit 的 divider 拖拽优先级
+    /// (dragThatCannotResizeWindow = 490 / dragThatCanResizeWindow = 510)。
+    /// 本 split view 是 Auto Layout 驱动的（EditorView 关闭了 autoresizing 转换），
+    /// 一旦某栏 holding priority 高于拖拽优先级，布局引擎会判定该栏"不可因拖拽改宽"，
+    /// 相邻 divider 就完全拖不动（此前 .defaultHigh = 750 正是第 2 / 第 3 条 divider 卡死的根因）。
+    /// 编辑器栏保持最低优先级，窗口缩放时由它吸收宽度变化。
+    private func applyDragFriendlyHoldingPriorities() {
+        guard subviews.count >= 3 else { return }
+        setHoldingPriority(NSLayoutConstraint.Priority(260), forSubviewAt: 0)
+        setHoldingPriority(NSLayoutConstraint.Priority(260), forSubviewAt: 1)
+        setHoldingPriority(NSLayoutConstraint.Priority(250), forSubviewAt: 2)
     }
 
     private var isDividerHidden: Bool {
@@ -100,7 +115,7 @@ class EditorSplitView: ThemedSplitView {
         if subviews.count >= 3, subviews[1].isHidden == false {
             let tocWidth = subviews[1].frame.width
             if tocWidth > Theme.Metrics.collapsedSplitWidthEpsilon {
-                preferredTOCWidth = tocWidth
+                preferredTOCWidth = min(max(tocWidth, TOCConstraints.minWidth), TOCConstraints.maxWidth)
             }
         }
 
@@ -128,17 +143,17 @@ class EditorSplitView: ThemedSplitView {
 
     private var maxTOCDividerPosition: CGFloat {
         guard subviews.count >= 3 else { return bounds.width }
-        let maxByEditorWidth = bounds.width - TOCConstraints.minEditorWidth - dividerThickness
-        return max(minTOCDividerPosition, maxByEditorWidth)
+        // 与 configureTOCColumnIfNeeded 的上限口径保持一致：
+        // 拖拽时直接停在 TOC 最大宽度处，避免松手后被回弹截断。
+        let base = subviews[0].frame.width + dividerThickness
+        let availableTOCWidth = bounds.width - base - dividerThickness - TOCConstraints.minEditorWidth
+        let maxTOCWidth = min(TOCConstraints.maxWidth, availableTOCWidth)
+        return max(minTOCDividerPosition, base + maxTOCWidth)
     }
 
     private func configureTOCColumnIfNeeded() {
         guard subviews.count >= 3, !isAdjustingTOCColumn else { return }
         guard subviews[1].isHidden == false else { return }
-
-        setHoldingPriority(.defaultHigh, forSubviewAt: 0)
-        setHoldingPriority(.defaultHigh, forSubviewAt: 1)
-        setHoldingPriority(.defaultLow, forSubviewAt: 2)
 
         let currentTOCWidth = subviews[1].frame.width
         let availableMaxWidth = max(
