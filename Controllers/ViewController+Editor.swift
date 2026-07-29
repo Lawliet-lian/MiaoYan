@@ -583,6 +583,7 @@ extension ViewController {
         sessionPresentationMode = true
         savePresentationLayout()
         hideNoteList("")
+        setEditorTOCVisible(false)
         formatButton.isHidden = true
         previewButton.isHidden = true
         toggleListButton?.isHidden = true
@@ -708,6 +709,7 @@ extension ViewController {
         sessionMagicPPTMode = true
         savePresentationLayout()
         hideNoteList("")
+        setEditorTOCVisible(false)
         hideNoteList("")
         formatButton.isHidden = true
         previewButton.isHidden = true
@@ -1535,6 +1537,9 @@ extension ViewController {
                         preserveUndo: true  // Preserve undo stack during view refreshes (e.g. Split View toggle)
                     )
                     self.editArea.fill(note: note, options: options)
+                    if !previewOnly {
+                        self.refreshEditorTOC()
+                    }
                     self.editArea.setSelectedRange(NSRange(location: location, length: 0))
                 }
             }

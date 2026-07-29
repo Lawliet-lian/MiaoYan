@@ -179,6 +179,18 @@ class EditorContentSplitView: NSSplitView {
 // MARK: - NSSplitViewDelegate Support
 
 extension EditorContentSplitView: NSSplitViewDelegate {
+    func splitView(
+        _ splitView: NSSplitView,
+        effectiveRect proposedEffectiveRect: NSRect,
+        forDrawnRect drawnRect: NSRect,
+        ofDividerAt dividerIndex: Int
+    ) -> NSRect {
+        if isVertical {
+            return proposedEffectiveRect.insetBy(dx: -6, dy: 0)
+        }
+
+        return proposedEffectiveRect.insetBy(dx: 0, dy: -6)
+    }
 
     func splitView(_ splitView: NSSplitView, constrainMinCoordinate proposedMinimumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
         if dividerIndex == 0 && displayMode == .sideBySide {

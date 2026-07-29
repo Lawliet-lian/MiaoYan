@@ -46,6 +46,13 @@ extension ViewController {
         return !noteListView.isHidden && notelistWidth > Theme.Metrics.collapsedSplitWidthEpsilon
     }
 
+    private var isEditorTOCVisible: Bool {
+        guard splitView?.subviews.count ?? 0 >= 3 else { return false }
+        let tocView = splitView.subviews[1]
+        let tocWidth = tocView.frame.width
+        return !tocView.isHidden && tocWidth > Theme.Metrics.collapsedSplitWidthEpsilon
+    }
+
     // MARK: - Layout Management Methods
     func checkSidebarConstraint() {
         let isSidebarCollapsed = !isSidebarVisible && !UserDefaultsManagement.isWillFullScreen
@@ -138,9 +145,25 @@ extension ViewController {
         normalizeNotelistWidth(saveState: false)
     }
 
+    func setEditorTOCVisible(_ visible: Bool) {
+        guard splitView.subviews.count >= 3 else { return }
+
+        splitView.preferredTOCWidth = editorTOCPreferredWidth
+
+        if visible {
+            splitView.subviews[1].isHidden = false
+        }
+
+        splitView.setTOCVisible(visible)
+        splitView.layoutSubtreeIfNeeded()
+        splitView.applyDividerColor()
+    }
+
     private func setNotelistVisible(_ visible: Bool, saveState: Bool = true) {
         let noteListView = splitView.subviews.first
         if visible {
+            isRestoringNotelistVisibility = true
+            setEditorTOCVisible(true)
             noteListView?.isHidden = false
             let savedWidth = UserDefaultsManagement.sidebarSize
             let fallbackWidth = Int(LayoutConstants.defaultNotelistWidth)
@@ -164,6 +187,9 @@ extension ViewController {
         }
         editArea.updateTextContainerInset()
         splitView.layoutSubtreeIfNeeded()
+        if visible {
+            isRestoringNotelistVisibility = false
+        }
         splitView.applyDividerColor()
         checkTitlebarTopConstraint()
         updateToolbarButtonTints()
@@ -172,17 +198,14 @@ extension ViewController {
     private func normalizeNotelistWidth(saveState: Bool) {
         let width = notelistWidth
         guard !isNormalizingNotelistWidth,
+            !isRestoringNotelistVisibility,
             isNotelistVisible,
-            width < Theme.Metrics.noteListMinimumWidth
+            width <= Theme.Metrics.collapsedSplitWidthEpsilon
         else { return }
 
         isNormalizingNotelistWidth = true
         defer { isNormalizingNotelistWidth = false }
-        if width < Theme.Metrics.noteListCollapseSnapWidth {
-            collapseNotelist(saveState: saveState)
-        } else {
-            setNotelistVisible(true, saveState: saveState)
-        }
+        collapseNotelist(saveState: saveState)
     }
 
     private func collapseNotelist(saveState: Bool = true) {
@@ -236,29 +259,18 @@ extension ViewController {
     @IBAction func toggleLayoutCycle(_ sender: Any) {
         guard splitView != nil, sidebarSplitView != nil else { return }
 
-        // 1. If Sidebar is visible -> Hide Sidebar (Enter Double Column)
-        if isSidebarVisible {
+        switch (isSidebarVisible, isNotelistVisible, isEditorTOCVisible) {
+        case (false, false, false):
+            setEditorTOCVisible(true)
+        case (false, false, true):
+            setNotelistVisible(true)
+        case (false, true, true):
+            setSidebarVisible(true)
+        default:
             setSidebarVisible(false)
-            isUnfoldingLayout = false
-            return
+            setNotelistVisible(false)
+            setEditorTOCVisible(false)
         }
-
-        // 2. If Note List is visible -> Check unfolding direction
-        if isNotelistVisible {
-            if isUnfoldingLayout {
-                // Direction: Unfolding -> Show Sidebar (Return to Full)
-                setSidebarVisible(true)
-                isUnfoldingLayout = false
-            } else {
-                // Direction: Folding -> Hide Note List (Enter Focus Mode)
-                setNotelistVisible(false)
-            }
-            return
-        }
-
-        // 3. If Note List is hidden -> Show Note List (Start Unfolding)
-        setNotelistVisible(true)
-        isUnfoldingLayout = true
     }
 
     @IBAction func toggleSidebarPanel(_ sender: Any) {

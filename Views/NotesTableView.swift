@@ -413,6 +413,9 @@ class NotesTableView: NSTableView {
 
             if !UserDataService.instance.shouldBlockEditAreaUpdate() {
                 vc.editArea.fill(note: note, options: .silent)
+                // 切换笔记的主路径直接调用 fill(note:)，不会经过 ViewController.refillEditArea()。
+                // 这里需要同步刷新编辑区 TOC，避免目录停留在上一篇笔记，直到用户再次触发预览刷新。
+                vc.refreshEditorTOC()
             }
         } else {
             // UX: Auto-select first note to avoid empty editor (unified behavior).

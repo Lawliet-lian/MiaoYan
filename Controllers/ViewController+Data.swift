@@ -403,6 +403,7 @@ extension ViewController {
                     // Case 1: Standard Selection Success
                     if let selectedNote = self.notesTableView.getSelectedNote() {
                         self.editArea.fill(note: selectedNote, options: .silent)
+                        self.refreshEditorTOC()
                         self.revealEditor()
                     }
                     // Case 2: Selection missed/racing but data exists
@@ -414,6 +415,7 @@ extension ViewController {
                         self.notesTableView.scrollRowToVisible(0)
 
                         self.editArea.fill(note: firstNote, options: .silent)
+                        self.refreshEditorTOC()
                         self.revealEditor()
                     } else {
                         // Reveal anyway if we have no notes (empty state)
@@ -691,6 +693,7 @@ extension ViewController {
             // Avoid filling during note creation to prevent content flashing
             if !UserDataService.instance.shouldBlockEditAreaUpdate() {
                 editArea.fill(note: note, options: .forced)
+                refreshEditorTOC()
             }
         }
     }

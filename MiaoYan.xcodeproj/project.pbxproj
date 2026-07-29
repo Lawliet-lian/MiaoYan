@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B2F0E0D1C2B3A49586757463 /* EditorTOCItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F0E0D1C2B3A49586757463 /* EditorTOCItem.swift */; };
+		B2F0E0D1C2B3A49586757464 /* EditorTOCParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F0E0D1C2B3A49586757464 /* EditorTOCParser.swift */; };
+		B2F0E0D1C2B3A49586757465 /* EditorTOCView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F0E0D1C2B3A49586757465 /* EditorTOCView.swift */; };
 		088B43D4653C47ECBC4A20E9 /* ViewController+Export.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79ED9A0265AF40869D66861F /* ViewController+Export.swift */; };
 		1A11AA0F885D42989822E001 /* MobilePadShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B22AA0F885D42989822E001 /* MobilePadShell.swift */; };
 		1A11AA0F885D42989822E002 /* PadSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B22AA0F885D42989822E002 /* PadSidebarView.swift */; };
@@ -222,6 +225,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A1F0E0D1C2B3A49586757463 /* EditorTOCItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTOCItem.swift; sourceTree = "<group>"; };
+		A1F0E0D1C2B3A49586757464 /* EditorTOCParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTOCParser.swift; sourceTree = "<group>"; };
+		A1F0E0D1C2B3A49586757465 /* EditorTOCView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTOCView.swift; sourceTree = "<group>"; };
 		0736438569674343BEEB0299 /* Helpers/HtmlToMarkdown.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Helpers/HtmlToMarkdown.swift; sourceTree = SOURCE_ROOT; };
 		0B2BB9795EE5AC72B1423FF8 /* MiaoYanTests/ImportScanTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MiaoYanTests/ImportScanTests.swift; sourceTree = SOURCE_ROOT; };
 		0C6D1E9F6DF428F005279AD6 /* mobile-reader.css */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.css; name = "mobile-reader.css"; path = "MiaoYanMobile/Resources/mobile-reader.css"; sourceTree = SOURCE_ROOT; };
@@ -618,6 +624,7 @@
 		D7B6E59C20794B4C00FE0E20 /* Business */ = {
 			isa = PBXGroup;
 			children = (
+				A1F0E0D1C2B3A49586757463 /* EditorTOCItem.swift */,
 				b2384ca08b9b4d1389a7bf4e0ae47758 /* FontConfiguration.swift */,
 				278160912E75551F00F3D54B /* PrefsModel.swift */,
 				D7038E2520FB24E000A54E69 /* NoteAttachment.swift */,
@@ -720,6 +727,7 @@
 				D7315ED1215ED15500AB49D4 /* SidebarSplitView.swift */,
 				D7315ECE215ECF3000AB49D4 /* EditorView.swift */,
 				D77CC040216A608500582B97 /* EditorScrollView.swift */,
+				A1F0E0D1C2B3A49586757465 /* EditorTOCView.swift */,
 				D7D1DE67216D05A800AC1845 /* NameTextField.swift */,
 				2799407B218484C900727B20 /* TitleBarView.swift */,
 				274D62D02E434B9C003C075F /* ImagePreviewWindow.swift */,
@@ -740,6 +748,7 @@
 				27F1C0202F40000300AAA001 /* MarkdownRuleHighlighter.swift */,
 				27F1C0102F40000200AAA001 /* CodeBlockHighlighter.swift */,
 				27F1C0002F40000100AAA001 /* LinkHighlighter.swift */,
+				A1F0E0D1C2B3A49586757464 /* EditorTOCParser.swift */,
 				27E951082E814E61004E2883 /* ShortcutTemplateManager.swift */,
 				2763128C2E766CE3007BB5E9 /* Theme.swift */,
 				276312602E7580B5007BB5E9 /* Localization.swift */,
@@ -1038,6 +1047,9 @@
 				27F1C0212F40000300AAA001 /* MarkdownRuleHighlighter.swift in Sources */,
 				27F1C0112F40000200AAA001 /* CodeBlockHighlighter.swift in Sources */,
 				27F1C0012F40000100AAA001 /* LinkHighlighter.swift in Sources */,
+				B2F0E0D1C2B3A49586757463 /* EditorTOCItem.swift in Sources */,
+				B2F0E0D1C2B3A49586757464 /* EditorTOCParser.swift in Sources */,
+				B2F0E0D1C2B3A49586757465 /* EditorTOCView.swift in Sources */,
 				271FD5A12A73DC9E001EA97B /* NSColor+.swift in Sources */,
 				271FD59D2A73DB9A001EA97B /* NSTextStorage+.swift in Sources */,
 				27EFD78A2E40E2E400DE6636 /* HtmlManager.swift in Sources */,

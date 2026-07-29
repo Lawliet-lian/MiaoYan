@@ -850,21 +850,25 @@ CA
                                                     <constraint firstItem="Kzf-Jh-YEb" firstAttribute="top" secondItem="bd7-O3-GQF" secondAttribute="bottom" id="z4N-Ag-s6x"/>
                                                 </constraints>
                                             </customView>
+                                            <customView autoresizesSubviews="NO" misplaced="YES" id="NfQ-2c-8vE">
+                                                <rect key="frame" x="268" y="0.0" width="200" height="635"/>
+                                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                                            </customView>
                                             <customView autoresizesSubviews="NO" translatesAutoresizingMaskIntoConstraints="NO" id="at7-wA-VAS" customClass="EditorView" customModule="MiaoYan" customModuleProvider="target">
-                                                <rect key="frame" x="268" y="0.0" width="584" height="635"/>
+                                                <rect key="frame" x="469" y="0.0" width="383" height="635"/>
                                                 <subviews>
                                                     <scrollView borderType="none" autohidesScrollers="YES" horizontalLineScroll="10" horizontalPageScroll="10" verticalLineScroll="10" verticalPageScroll="10" hasHorizontalScroller="NO" usesPredominantAxisScrolling="NO" horizontalScrollElasticity="none" translatesAutoresizingMaskIntoConstraints="NO" id="qJO-7f-vkL" customClass="EditorScrollView" customModule="MiaoYan" customModuleProvider="target">
-                                                        <rect key="frame" x="0.0" y="0.0" width="561" height="583"/>
+                                                        <rect key="frame" x="0.0" y="0.0" width="360" height="583"/>
                                                         <clipView key="contentView" focusRingType="none" drawsBackground="NO" copiesOnScroll="NO" id="FJ2-Yo-v0A">
-                                                            <rect key="frame" x="0.0" y="0.0" width="561" height="583"/>
+                                                            <rect key="frame" x="0.0" y="0.0" width="360" height="583"/>
                                                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                             <subviews>
                                                                 <textView focusRingType="none" verticallyResizable="YES" usesFontPanel="YES" findStyle="bar" allowsCharacterPickerTouchBarItem="NO" allowsDocumentBackgroundColorChange="YES" allowsUndo="YES" usesRuler="YES" textCompletion="NO" smartInsertDelete="YES" id="cmZ-KL-T9k" customClass="EditTextView" customModule="MiaoYan" customModuleProvider="target">
-                                                                    <rect key="frame" x="0.0" y="0.0" width="561" height="583"/>
+                                                                    <rect key="frame" x="0.0" y="0.0" width="360" height="583"/>
                                                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                                                     <color key="textColor" name="textColor" catalog="System" colorSpace="catalog"/>
                                                                     <color key="backgroundColor" name="mainBackground"/>
-                                                                    <size key="minSize" width="561" height="583"/>
+                                                                    <size key="minSize" width="360" height="583"/>
                                                                     <size key="maxSize" width="817" height="10000000"/>
                                                                     <color key="insertionPointColor" name="textColor" catalog="System" colorSpace="catalog"/>
                                                                 </textView>
@@ -881,7 +885,7 @@ CA
                                                             <autoresizingMask key="autoresizingMask"/>
                                                         </scroller>
                                                         <scroller key="verticalScroller" hidden="YES" wantsLayer="YES" focusRingType="none" verticalHuggingPriority="750" controlSize="small" horizontal="NO" id="TNj-kl-fKh">
-                                                            <rect key="frame" x="546" y="0.0" width="15" height="583"/>
+                                                            <rect key="frame" x="345" y="0.0" width="15" height="583"/>
                                                             <autoresizingMask key="autoresizingMask"/>
                                                         </scroller>
                                                     </scrollView>
@@ -1011,6 +1015,7 @@ CA
                                         </subviews>
                                         <holdingPriorities>
                                             <real value="240"/>
+                                            <real value="240"/>
                                             <real value="1"/>
                                         </holdingPriorities>
                                     </splitView>
@@ -1037,6 +1042,7 @@ CA
                         <outlet property="addProjectButton" destination="Yei-Or-qiI" id="bPx-nk-z5u"/>
                         <outlet property="editArea" destination="cmZ-KL-T9k" id="sJd-5P-0mf"/>
                         <outlet property="editAreaScroll" destination="qJO-7f-vkL" id="X69-yq-N67"/>
+                        <outlet property="editorTOCContainerView" destination="NfQ-2c-8vE" id="kM0-7t-0cE"/>
                         <outlet property="emptyEditAreaImage" destination="Gz4-4G-Fts" id="Wan-oZ-dmP"/>
                         <outlet property="emptyEditAreaView" destination="B2U-rx-xCL" id="Y00-zR-k4l"/>
                         <outlet property="emptyEditTitle" destination="kn8-MP-1kR" id="epZ-CY-7ib"/>

@@ -126,6 +126,7 @@ class ViewController:
 
     var editorContentSplitView: EditorContentSplitView?
     var previewScrollView: EditorScrollView?
+    var editorTOCView: EditorTOCView?
     nonisolated(unsafe) var splitScrollObserver: NSObjectProtocol?
     // Split scroll sync is intentionally coalesced into short bursts instead
     // of mirroring every single NSClipView bounds change immediately. Without
@@ -167,6 +168,8 @@ class ViewController:
     var needsEditorModeUpdateAfterPreview = false
     var isUnfoldingLayout = false
     var isNormalizingNotelistWidth = false
+    var isRestoringNotelistVisibility = false
+    var editorTOCPreferredWidth: CGFloat = 140
     @IBOutlet var search: SearchTextField!
     @IBOutlet var notesTableView: NotesTableView!
     @IBOutlet var noteMenu: NSMenu! {
@@ -177,6 +180,7 @@ class ViewController:
     @IBOutlet var storageOutlineView: SidebarProjectView!
     @IBOutlet var sidebarSplitView: NSSplitView!
     @IBOutlet var notesListCustomView: NSView!
+    @IBOutlet var editorTOCContainerView: NSView!
     @IBOutlet var outlineHeader: OutlineHeaderView!
     @IBOutlet var titiebarHeight: NSLayoutConstraint!
     @IBOutlet var searchTopConstraint: NSLayoutConstraint!
@@ -1012,6 +1016,7 @@ class ViewController:
         }
         // Configure split view for editor content
         configureEditorContentSplitView()
+        configureEditorTOC()
         ensurePanelsVisibleAtStartup()
         applyModernChromeStyling()
     }
@@ -1019,6 +1024,7 @@ class ViewController:
     func applyModernChromeStyling() {
         view.applyMiaoYanPaneBackground()
         notesListCustomView.applyMiaoYanPaneBackground()
+        editorTOCContainerView.applyMiaoYanPaneBackground()
         outlineHeader.applyMiaoYanPaneBackground()
         projectHeaderView.applyMiaoYanPaneBackground()
 
@@ -1050,6 +1056,34 @@ class ViewController:
 
         (sidebarSplitView as? ThemedSplitView)?.applyDividerColor()
         splitView.applyDividerColor()
+    }
+
+    func configureEditorTOC() {
+        let tocView = EditorTOCView(frame: .zero)
+        tocView.translatesAutoresizingMaskIntoConstraints = false
+        tocView.onSelectItem = { [weak self] item in
+            self?.jumpToEditorTOCItem(item)
+        }
+
+        editorTOCContainerView.addSubview(tocView)
+        NSLayoutConstraint.activate([
+            tocView.leadingAnchor.constraint(equalTo: editorTOCContainerView.leadingAnchor),
+            tocView.trailingAnchor.constraint(equalTo: editorTOCContainerView.trailingAnchor),
+            tocView.topAnchor.constraint(equalTo: editorTOCContainerView.topAnchor),
+            tocView.bottomAnchor.constraint(equalTo: editorTOCContainerView.bottomAnchor),
+        ])
+
+        editorTOCView = tocView
+    }
+
+    func refreshEditorTOC() {
+        editorTOCView?.updateItems(EditorTOCParser.parse(editArea.string))
+    }
+
+    func jumpToEditorTOCItem(_ item: EditorTOCItem) {
+        editArea.setSelectedRange(item.characterRange)
+        editArea.scrollRangeToVisible(item.characterRange)
+        view.window?.makeFirstResponder(editArea)
     }
 
     private func configureEditorContentSplitView() {
