@@ -157,6 +157,13 @@ extension ViewController {
         splitView.setTOCVisible(visible)
         splitView.layoutSubtreeIfNeeded()
         splitView.applyDividerColor()
+
+        // Phase 2: once the panel becomes visible, immediately mark the heading
+        // under the editor's current viewport so the outline is in sync from
+        // the first frame instead of waiting for the next scroll event.
+        if visible {
+            updateEditorTOCHighlight()
+        }
     }
 
     private func setNotelistVisible(_ visible: Bool, saveState: Bool = true) {

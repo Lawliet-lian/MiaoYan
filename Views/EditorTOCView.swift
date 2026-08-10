@@ -37,7 +37,12 @@ final class EditorTOCView: NSView, NSTableViewDataSource, NSTableViewDelegate {
     private let scrollView = NSScrollView()
     private let tableView = NSTableView()
     private let trailingSeparator = NSView()
-    private var items: [EditorTOCItem] = []
+    private(set) var items: [EditorTOCItem] = []
+    /// Currently highlighted "current heading" row, or nil when nothing is
+    /// highlighted. Programmatic selection must never be treated as a user
+    /// click (see `setHighlightedIndex`).
+    private var highlightedIndex: Int?
+    private var isProgrammaticSelection = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -51,7 +56,36 @@ final class EditorTOCView: NSView, NSTableViewDataSource, NSTableViewDelegate {
 
     func updateItems(_ items: [EditorTOCItem]) {
         self.items = items
+        // The item set changed (typing or note switch); drop the stale
+        // selection so a previous heading index does not linger on a row that
+        // now belongs to different content. The caller re-evaluates the
+        // highlight right after the update.
+        highlightedIndex = nil
+        if tableView.selectedRow >= 0 {
+            tableView.deselectAll(nil)
+        }
         tableView.reloadData()
+    }
+
+    /// Marks the given row as the "current heading" (or clears the highlight
+    /// when `index` is nil) and keeps the highlighted row visible in the
+    /// outline. Selection is flagged as programmatic so it never routes
+    /// through `onSelectItem` — otherwise scrolling the editor would yank the
+    /// cursor back to the highlighted heading.
+    func setHighlightedIndex(_ index: Int?) {
+        let clamped = index.flatMap { items.indices.contains($0) ? $0 : nil }
+        guard clamped != highlightedIndex else { return }
+        highlightedIndex = clamped
+
+        isProgrammaticSelection = true
+        defer { isProgrammaticSelection = false }
+
+        if let row = clamped {
+            tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+            tableView.scrollRowToVisible(row)
+        } else {
+            tableView.deselectAll(nil)
+        }
     }
 
     override func layout() {
@@ -156,6 +190,7 @@ final class EditorTOCView: NSView, NSTableViewDataSource, NSTableViewDelegate {
     }
 
     func tableViewSelectionDidChange(_ notification: Notification) {
+        guard !isProgrammaticSelection else { return }
         let selectedRow = tableView.selectedRow
         guard selectedRow >= 0, items.indices.contains(selectedRow) else { return }
         onSelectItem?(items[selectedRow])

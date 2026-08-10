@@ -86,6 +86,102 @@ extension ViewController {
         static let splitScrollMinimumRatioDelta: CGFloat = 0.015
     }
 
+    // MARK: - Editor Native TOC Linking (Phase 2)
+
+    /// Timing constants for the native editor outline.
+    /// - `refreshDebounce`: text changes rebuild the outline only after the
+    ///   user pauses typing, keeping parse cost off the keystroke hot path.
+    /// - `scrollHighlightThrottle`: editor scroll events coalesce into one
+    ///   highlight pass every ~60ms instead of computing on every bounds
+    ///   change (fast trackpads emit a dense stream).
+    private enum EditorTOCTiming {
+        static let refreshDebounce: TimeInterval = 0.18
+        static let scrollHighlightThrottle: TimeInterval = 0.06
+    }
+
+    /// Debounced entry point used by `textDidChange`. Cancels any pending
+    /// rebuild and starts a fresh window, so a typing burst triggers exactly
+    /// one parse after the editor goes quiet.
+    func scheduleEditorTOCRefresh() {
+        editorTOCRefreshWorkItem?.cancel()
+
+        let workItem = DispatchWorkItem { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.editorTOCRefreshWorkItem = nil
+                self.refreshEditorTOC()
+            }
+        }
+        editorTOCRefreshWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + EditorTOCTiming.refreshDebounce, execute: workItem)
+    }
+
+    /// Attaches a bounds observer to the editor clip view so scrolling the
+    /// editor drives the outline highlight. The observer lives for the whole
+    /// controller lifetime; `updateEditorTOCHighlight()` gates the work by
+    /// panel visibility so hidden modes (presentation / PPT) stay cheap.
+    func setupEditorTOCScrollObservation() {
+        guard editorTOCScrollObserver == nil,
+            let editorClip = editAreaScroll?.contentView as? NSClipView
+        else { return }
+
+        editorClip.postsBoundsChangedNotifications = true
+        editorTOCScrollObserver = NotificationCenter.default.addObserver(
+            forName: NSView.boundsDidChangeNotification,
+            object: editorClip,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.scheduleEditorTOCHighlightUpdate()
+            }
+        }
+    }
+
+    /// Coalesces a burst of editor scroll notifications into one highlight
+    /// pass (see `EditorTOCTiming.scrollHighlightThrottle`).
+    private func scheduleEditorTOCHighlightUpdate() {
+        editorTOCHighlightWorkItem?.cancel()
+
+        let workItem = DispatchWorkItem { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.editorTOCHighlightWorkItem = nil
+                self.updateEditorTOCHighlight()
+            }
+        }
+        editorTOCHighlightWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + EditorTOCTiming.scrollHighlightThrottle, execute: workItem)
+    }
+
+    /// Recomputes which heading is "current" and asks the outline table to
+    /// highlight it. The current heading is the last one whose line sits at or
+    /// above the top of the visible editor area — i.e. the section the user is
+    /// reading — matching standard outline behavior. Items are emitted in
+    /// document order, so the scan stops at the first heading below the top.
+    func updateEditorTOCHighlight() {
+        guard let tocView = editorTOCView,
+            !editorTOCContainerView.isHidden,
+            !sessionMagicPPTMode
+        else { return }
+
+        let items = tocView.items
+        guard !items.isEmpty else {
+            tocView.setHighlightedIndex(nil)
+            return
+        }
+
+        let topLine = editorTopLine()
+        var highlightedIndex: Int?
+        for (index, item) in items.enumerated() {
+            if CGFloat(item.line) <= topLine {
+                highlightedIndex = index
+            } else {
+                break
+            }
+        }
+        tocView.setHighlightedIndex(highlightedIndex)
+    }
+
     // MARK: - WebView Helper
 
     /// Show WebView - centralized method to avoid duplication

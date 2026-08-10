@@ -127,6 +127,13 @@ class ViewController:
     var editorContentSplitView: EditorContentSplitView?
     var previewScrollView: EditorScrollView?
     var editorTOCView: EditorTOCView?
+    // Phase 2 native TOC linking state: debounced outline rebuild, coalesced
+    // scroll-highlight pass, and the editor clip-view observer that feeds it.
+    // Kept on the controller so note switches cancel stale work items and the
+    // deinit tears everything down.
+    nonisolated(unsafe) var editorTOCRefreshWorkItem: DispatchWorkItem?
+    nonisolated(unsafe) var editorTOCHighlightWorkItem: DispatchWorkItem?
+    nonisolated(unsafe) var editorTOCScrollObserver: NSObjectProtocol?
     nonisolated(unsafe) var splitScrollObserver: NSObjectProtocol?
     // Split scroll sync is intentionally coalesced into short bursts instead
     // of mirroring every single NSClipView bounds change immediately. Without
@@ -370,6 +377,11 @@ class ViewController:
     deinit {
         // Clean up scroll sync resources
         if let observer = splitScrollObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        editorTOCRefreshWorkItem?.cancel()
+        editorTOCHighlightWorkItem?.cancel()
+        if let observer = editorTOCScrollObserver {
             NotificationCenter.default.removeObserver(observer)
         }
         previewUpdateTimer?.invalidate()
@@ -1074,10 +1086,21 @@ class ViewController:
         ])
 
         editorTOCView = tocView
+        setupEditorTOCScrollObservation()
     }
 
     func refreshEditorTOC() {
+        // Cancel any in-flight debounced rebuild: this path is the immediate
+        // refresh (note switch / mode restore), and a stale work item would
+        // otherwise parse the note a second time once typing pauses.
+        editorTOCRefreshWorkItem?.cancel()
+        editorTOCRefreshWorkItem = nil
+
         editorTOCView?.updateItems(EditorTOCParser.parse(editArea.string))
+        // After a rebuild the current heading may have changed (typing above
+        // it, or a new note), so re-evaluate the highlight against the fresh
+        // item set instead of waiting for the next scroll event.
+        updateEditorTOCHighlight()
     }
 
     func jumpToEditorTOCItem(_ item: EditorTOCItem) {
@@ -1370,6 +1393,14 @@ class ViewController:
                     self.editArea.markdownView?.updateContent(note: note)
                 }
             }
+        }
+
+        // Editor-native TOC (Phase 2): rebuild the outline on a debounce so a
+        // typing burst does not re-parse the whole note on every keystroke.
+        // The container-visibility gate keeps this cheap in modes where the
+        // outline panel is hidden.
+        if let tocContainer = editorTOCContainerView, !tocContainer.isHidden {
+            scheduleEditorTOCRefresh()
         }
     }
 
