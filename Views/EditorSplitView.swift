@@ -116,6 +116,8 @@ class EditorSplitView: ThemedSplitView {
             let tocWidth = subviews[1].frame.width
             if tocWidth > Theme.Metrics.collapsedSplitWidthEpsilon {
                 preferredTOCWidth = min(max(tocWidth, TOCConstraints.minWidth), TOCConstraints.maxWidth)
+                // Phase 3: persist the dragged TOC width so it survives relaunch.
+                UserDefaultsManagement.editorTOCWidth = preferredTOCWidth
             }
         }
 

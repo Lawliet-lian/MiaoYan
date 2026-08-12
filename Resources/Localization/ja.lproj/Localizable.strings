@@ -301,3 +301,6 @@
 "Created" = "作成";
 "Backlinks" = "バックリンク";
 "Project name" = "フォルダ名";
+
+/* Editor native TOC empty state */
+"No headings" = "見出しがありません";

@@ -37,6 +37,10 @@ final class EditorTOCView: NSView, NSTableViewDataSource, NSTableViewDelegate {
     private let scrollView = NSScrollView()
     private let tableView = NSTableView()
     private let trailingSeparator = NSView()
+    /// Shown when the current note has no headings at all, so the panel never
+    /// reads as a broken/empty pane. Hidden as soon as the first heading
+    /// exists; the table itself renders zero rows in the meantime.
+    private let emptyStateLabel = NSTextField(labelWithString: I18n.str("No headings"))
     private(set) var items: [EditorTOCItem] = []
     /// Currently highlighted "current heading" row, or nil when nothing is
     /// highlighted. Programmatic selection must never be treated as a user
@@ -56,6 +60,7 @@ final class EditorTOCView: NSView, NSTableViewDataSource, NSTableViewDelegate {
 
     func updateItems(_ items: [EditorTOCItem]) {
         self.items = items
+        emptyStateLabel.isHidden = !items.isEmpty
         // The item set changed (typing or note switch); drop the stale
         // selection so a previous heading index does not linger on a row that
         // now belongs to different content. The caller re-evaluates the
@@ -143,6 +148,15 @@ final class EditorTOCView: NSView, NSTableViewDataSource, NSTableViewDelegate {
         scrollView.documentView = tableView
         addSubview(scrollView)
 
+        emptyStateLabel.translatesAutoresizingMaskIntoConstraints = false
+        emptyStateLabel.font = .systemFont(ofSize: 12)
+        emptyStateLabel.textColor = Theme.secondaryTextColor
+        emptyStateLabel.alignment = .center
+        emptyStateLabel.lineBreakMode = .byWordWrapping
+        emptyStateLabel.maximumNumberOfLines = 2
+        emptyStateLabel.isHidden = true
+        addSubview(emptyStateLabel)
+
         trailingSeparator.translatesAutoresizingMaskIntoConstraints = false
         trailingSeparator.wantsLayer = true
         addSubview(trailingSeparator)
@@ -153,6 +167,10 @@ final class EditorTOCView: NSView, NSTableViewDataSource, NSTableViewDelegate {
             scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: topAnchor),
             scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            emptyStateLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
+            emptyStateLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
+            emptyStateLabel.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 12),
+            emptyStateLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -12),
             trailingSeparator.trailingAnchor.constraint(equalTo: trailingAnchor),
             trailingSeparator.topAnchor.constraint(equalTo: topAnchor),
             trailingSeparator.bottomAnchor.constraint(equalTo: bottomAnchor),
@@ -185,6 +203,9 @@ final class EditorTOCView: NSView, NSTableViewDataSource, NSTableViewDelegate {
         }()
 
         cell.textField?.stringValue = item.title
+        // Long titles are truncated to one line by the cell; expose the full
+        // title as a tooltip so nothing is lost on hover.
+        cell.toolTip = item.title
         cell.leadingConstraint?.constant = 8 + CGFloat(max(item.level - 1, 0)) * 12
         return cell
     }

@@ -679,7 +679,7 @@ extension ViewController {
         sessionPresentationMode = true
         savePresentationLayout()
         hideNoteList("")
-        setEditorTOCVisible(false)
+        setEditorTOCVisible(false, saveState: false)
         formatButton.isHidden = true
         previewButton.isHidden = true
         toggleListButton?.isHidden = true
@@ -805,7 +805,7 @@ extension ViewController {
         sessionMagicPPTMode = true
         savePresentationLayout()
         hideNoteList("")
-        setEditorTOCVisible(false)
+        setEditorTOCVisible(false, saveState: false)
         hideNoteList("")
         formatButton.isHidden = true
         previewButton.isHidden = true
@@ -1454,11 +1454,22 @@ extension ViewController {
         togglePresentation()
     }
 
-    /// Toggle the table-of-contents panel in the preview pane. Only meaningful
-    /// when a preview WebView exists (preview or split mode); the menu item is
-    /// disabled otherwise via `validateMenuItem`.
+    /// Toggle the table-of-contents panel. Routing depends on the current
+    /// mode:
+    /// - Edit / split / pure preview: toggles the native editor outline
+    ///   column (preview clicks navigate the preview; see
+    ///   `jumpToEditorTOCItem`).
+    /// - Presentation: fullscreen slide surface, keeps the preview's own TOC.
+    /// - PPT: disabled (also enforced by `validateMenuItem`).
     @IBAction func toggleTOC(_ sender: Any) {
-        editArea.markdownView?.toggleTOC()
+        guard !sessionMagicPPTMode else { return }
+
+        if sessionPresentationMode {
+            editArea.markdownView?.toggleTOC()
+            return
+        }
+
+        setEditorTOCVisible(!isEditorTOCVisible)
     }
 
     // MARK: - Font Zoom

@@ -46,7 +46,9 @@ extension ViewController {
         return !noteListView.isHidden && notelistWidth > Theme.Metrics.collapsedSplitWidthEpsilon
     }
 
-    private var isEditorTOCVisible: Bool {
+    // Internal (not private): `toggleTOC:` in ViewController+Editor.swift
+    // needs it to decide between native TOC and preview TOC.
+    var isEditorTOCVisible: Bool {
         guard splitView?.subviews.count ?? 0 >= 3 else { return false }
         let tocView = splitView.subviews[1]
         let tocWidth = tocView.frame.width
@@ -145,10 +147,23 @@ extension ViewController {
         normalizeNotelistWidth(saveState: false)
     }
 
-    func setEditorTOCVisible(_ visible: Bool) {
+    /// Shows or hides the native editor TOC column.
+    ///
+    /// - Parameter saveState: `true` for user-initiated toggles (Cmd+5,
+    ///   layout cycle) so the choice survives relaunch. Transient
+    ///   mode-driven changes (entering preview / presentation / PPT and the
+    ///   restore on exit) pass `false` so they never clobber the preference.
+    func setEditorTOCVisible(_ visible: Bool, saveState: Bool = true) {
+        // The native outline is a mode-aware panel: it is fully usable in
+        // edit / split / pure preview (preview clicks navigate the preview),
+        // but never in presentation or PPT, which are fullscreen slide
+        // surfaces with no editor column. This guard covers a relaunch that
+        // restores presentation/PPT (EditorStateManager keeps `editorMode`
+        // across launches) and any layout-cycle call inside those modes.
+        if visible && (sessionPresentationMode || sessionMagicPPTMode) {
+            return
+        }
         guard splitView.subviews.count >= 3 else { return }
-
-        splitView.preferredTOCWidth = editorTOCPreferredWidth
 
         if visible {
             splitView.subviews[1].isHidden = false
@@ -164,13 +179,41 @@ extension ViewController {
         if visible {
             updateEditorTOCHighlight()
         }
+
+        // Phase 3: persist only user-initiated visibility changes.
+        if saveState {
+            UserDefaultsManagement.editorTOCVisible = visible
+        }
+    }
+
+    /// Phase 3: restores the persisted TOC width and visibility once at
+    /// startup, after the default panels have been laid out. Width `0` means
+    /// no stored value yet, so the layout's default stays in place.
+    func applySavedEditorTOCState() {
+        guard splitView.subviews.count >= 3 else { return }
+
+        let savedWidth = UserDefaultsManagement.editorTOCWidth
+        if savedWidth > 0 {
+            splitView.preferredTOCWidth = savedWidth
+        }
+
+        // Mode rule wins over the saved preference only for fullscreen slide
+        // surfaces: if the app relaunched into presentation / PPT, the native
+        // outline starts hidden. Pure preview restores the user's preference
+        // like edit / split, so the outline keeps working across relaunches.
+        let restoredInHiddenMode = sessionPresentationMode || sessionMagicPPTMode
+        let visible = !restoredInHiddenMode && UserDefaultsManagement.editorTOCVisible
+        setEditorTOCVisible(visible, saveState: false)
     }
 
     private func setNotelistVisible(_ visible: Bool, saveState: Bool = true) {
         let noteListView = splitView.subviews.first
         if visible {
             isRestoringNotelistVisibility = true
-            setEditorTOCVisible(true)
+            // Phase 3: re-showing the note list restores the user's persisted
+            // TOC preference instead of force-showing the outline (a Cmd+5
+            // hide would otherwise be undone by a note-list toggle).
+            setEditorTOCVisible(UserDefaultsManagement.editorTOCVisible, saveState: false)
             noteListView?.isHidden = false
             let savedWidth = UserDefaultsManagement.sidebarSize
             let fallbackWidth = Int(LayoutConstants.defaultNotelistWidth)

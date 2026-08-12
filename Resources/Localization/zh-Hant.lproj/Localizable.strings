@@ -278,3 +278,6 @@
 "Created" = "建立";
 "Backlinks" = "反向連結";
 "Project name" = "資料夾名稱";
+
+/* Editor native TOC empty state */
+"No headings" = "暫無標題";

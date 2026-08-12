@@ -155,6 +155,8 @@ public enum UserDefaultsManagement {
         static let HasShownImagePreviewTip = "hasShownImagePreviewTip"
         static let SplitViewMode = "splitViewMode"
         static let EditorContentSplitPosition = "editorContentSplitPosition"
+        static let EditorTOCVisible = "editorTOCVisible"
+        static let EditorTOCWidth = "editorTOCWidth"
         static let EditorModeKey = "editorMode"
     }
 
@@ -882,6 +884,37 @@ public enum UserDefaultsManagement {
             UserDefaults.standard.set(newValue, forKey: Constants.EditorContentSplitPosition)
         }
     }
+
+    /// Persisted visibility of the native editor TOC column. Defaults to
+    /// `true` (the panel is part of the default three-column layout). Only
+    /// user-initiated toggles write this key; transient mode-driven hides
+    /// (preview / presentation / PPT) pass `saveState: false` and must not
+    /// clobber the user's preference.
+    static var editorTOCVisible: Bool {
+        get {
+            if let result = UserDefaults.standard.object(forKey: Constants.EditorTOCVisible) as? Bool {
+                return result
+            }
+            return true
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Constants.EditorTOCVisible)
+        }
+    }
+
+    /// Persisted width of the native editor TOC column. `0` means "no stored
+    /// value yet"; callers fall back to the layout default and clamp on use.
+    static var editorTOCWidth: CGFloat {
+        get {
+            let stored = UserDefaults.standard.double(forKey: Constants.EditorTOCWidth)
+            guard stored > 0 else { return 0 }
+            return CGFloat(stored)
+        }
+        set {
+            UserDefaults.standard.set(Double(newValue), forKey: Constants.EditorTOCWidth)
+        }
+    }
+
     // Convenience properties
     static var isInSpecialMode: Bool {
         return EditorStateManager.shared.isInSpecialMode

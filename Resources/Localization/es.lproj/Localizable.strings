@@ -299,3 +299,6 @@
 "Created" = "Creado";
 "Backlinks" = "Enlaces inversos";
 "Project name" = "Nombre de carpeta";
+
+/* Editor native TOC empty state */
+"No headings" = "Sin encabezados";

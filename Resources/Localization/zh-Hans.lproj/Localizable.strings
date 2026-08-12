@@ -301,3 +301,6 @@
 "Created" = "创建";
 "Backlinks" = "反向链接";
 "Project name" = "文件夹名称";
+
+/* Editor native TOC empty state */
+"No headings" = "暂无标题";

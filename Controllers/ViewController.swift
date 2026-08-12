@@ -176,7 +176,6 @@ class ViewController:
     var isUnfoldingLayout = false
     var isNormalizingNotelistWidth = false
     var isRestoringNotelistVisibility = false
-    var editorTOCPreferredWidth: CGFloat = 140
     @IBOutlet var search: SearchTextField!
     @IBOutlet var notesTableView: NotesTableView!
     @IBOutlet var noteMenu: NSMenu! {
@@ -733,9 +732,14 @@ class ViewController:
         }
 
         if menuItem.action == #selector(toggleTOC(_:)) {
-            // TOC lives in the preview WebView; only meaningful in preview or
-            // split mode, and not in PPT (reveal.js template has no TOC).
-            return editArea.markdownView != nil && !sessionMagicPPTMode
+            // PPT has no TOC surface at all. In edit / split / pure preview
+            // the command toggles the native editor outline (needs the
+            // three-column split); presentation keeps the preview's own TOC.
+            guard !sessionMagicPPTMode else { return false }
+            if sessionPresentationMode {
+                return editArea.markdownView != nil
+            }
+            return splitView.subviews.count >= 3
         }
 
         let canUseMenu = UserDefaultsManagement.canUseMenu
@@ -1030,6 +1034,7 @@ class ViewController:
         configureEditorContentSplitView()
         configureEditorTOC()
         ensurePanelsVisibleAtStartup()
+        applySavedEditorTOCState()
         applyModernChromeStyling()
     }
 
@@ -1104,6 +1109,15 @@ class ViewController:
     }
 
     func jumpToEditorTOCItem(_ item: EditorTOCItem) {
+        // Preview-family modes hide the editor, so jumping the selection there
+        // would be invisible. Route the click to the preview WebView instead:
+        // `scrollToLine` is the same line-based anchor the split-view sync
+        // uses, so the preview lands on the heading the user clicked.
+        if sessionPreviewMode || sessionPresentationMode || sessionMagicPPTMode {
+            editArea.markdownView?.scrollToLine(CGFloat(item.line), fallbackRatio: nil)
+            return
+        }
+
         editArea.setSelectedRange(item.characterRange)
         editArea.scrollRangeToVisible(item.characterRange)
         view.window?.makeFirstResponder(editArea)
