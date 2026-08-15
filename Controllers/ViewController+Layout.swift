@@ -11,16 +11,15 @@ extension ViewController {
         static let narrowThreshold: CGFloat = 50
         static let searchTopSidebarCollapsed: CGFloat = 30.0
         static let searchTopNormal: CGFloat = 13.0
-        static let titlebarHeightNarrow: CGFloat = 54.0
-        static let titlebarHeightEditorOnly: CGFloat = 66.0
         static let titlebarHeightNormal: CGFloat = 52.0
-        static let titleTopNarrow: CGFloat = 22.0
-        static let titleTopEditorOnly: CGFloat = 32.0
         static let titleTopNormal: CGFloat = 16.0
         static let titleLeadingNormal: CGFloat = 25.0
-        static let titleLeadingEditorOnly: CGFloat = 30.0
         static let titleBarActionsTopNormal: CGFloat = 18.0
-        static let titleBarActionsTopEditorOnly: CGFloat = 28.0
+        /// Title bar top inset applied in every layout (matching the 2-column
+        /// layout) so the top-right buttons sit at a consistent height. In
+        /// editor-only layouts it also lets the title clear the macOS traffic
+        /// lights, since the editor reaches the far left there.
+        static let titleBarTopInset: CGFloat = 10.0
     }
 
     // MARK: - Properties
@@ -62,19 +61,16 @@ extension ViewController {
     }
 
     func checkTitlebarTopConstraint() {
-        let isNarrow = !isNotelistVisible && !UserDefaultsManagement.isWillFullScreen
-        let isEditorOnly = isNarrow && !isSidebarVisible
+        // Title bar metrics are identical across layouts (52pt), per user
+        // request: editor-only/narrow layouts previously used taller bars with
+        // lower button offsets, which made the top-right buttons shift
+        // vertically between layouts.
+        titiebarHeight.constant = LayoutConstants.titlebarHeightNormal
+        titleTopConstraint.constant = LayoutConstants.titleTopNormal
 
-        if isEditorOnly {
-            titiebarHeight.constant = LayoutConstants.titlebarHeightEditorOnly
-            titleTopConstraint.constant = LayoutConstants.titleTopEditorOnly
-        } else {
-            titiebarHeight.constant = isNarrow ? LayoutConstants.titlebarHeightNarrow : LayoutConstants.titlebarHeightNormal
-            titleTopConstraint.constant = isNarrow ? LayoutConstants.titleTopNarrow : LayoutConstants.titleTopNormal
-        }
-
-        updateTitleLeadingInset(isEditorOnly ? LayoutConstants.titleLeadingEditorOnly : LayoutConstants.titleLeadingNormal)
-        updateTitleBarActionsTop(isEditorOnly ? LayoutConstants.titleBarActionsTopEditorOnly : LayoutConstants.titleBarActionsTopNormal)
+        updateTitleLeadingInset(LayoutConstants.titleLeadingNormal)
+        updateTitleBarActionsTop(LayoutConstants.titleBarActionsTopNormal)
+        updateTitleBarTopInset(LayoutConstants.titleBarTopInset)
     }
 
     private func updateTitleLeadingInset(_ inset: CGFloat) {
@@ -99,6 +95,17 @@ extension ViewController {
             } else if first === titleBarAdditionalView && second === formatButton {
                 constraint.constant = -top
             }
+        }
+    }
+
+    /// Offsets the whole title bar vertically so the top-right buttons stay at
+    /// the same height in every layout (and the title clears the traffic
+    /// lights when the editor reaches the far left).
+    private func updateTitleBarTopInset(_ inset: CGFloat) {
+        guard let superview = titleBarView.superview else { return }
+        for constraint in superview.constraints
+        where constraint.firstItem === titleBarView && constraint.firstAttribute == .top {
+            constraint.constant = inset
         }
     }
 
