@@ -526,6 +526,19 @@ class EditTextView: NSTextView, @preconcurrency NSTextFinderClient {
                 await note.ensureContentLoadedAsync()
                 guard self.fillEpoch == epoch else { return }
                 self.applyNoteContent(note: note, options: options, viewController: viewController)
+                // The note's content only reaches the editor buffer here, after
+                // the async load. Callers refresh the native TOC right after
+                // fill(note:) returns, which in this path parses the *previous*
+                // buffer; and publishStorage() swaps storage wholesale without
+                // going through NSTextView.didChangeText, so textDidChange (and
+                // its debounced TOC refresh) never fires. Rebuild the outline
+                // now that the real content is in place, otherwise opening a
+                // note leaves the TOC stale/empty until a later fallback event.
+                if let tocContainer = viewController.editorTOCContainerView,
+                    !tocContainer.isHidden
+                {
+                    viewController.refreshEditorTOC()
+                }
             }
         }
     }
