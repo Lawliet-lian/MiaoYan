@@ -191,6 +191,9 @@
 /* Class = "NSMenuItem"; title = "Toggle TOC"; ObjectID = "Tgl-TOC-Menu"; */
 "Tgl-TOC-Menu.title" = "目次の表示切替";
 
+/* Class = "NSMenuItem"; title = "Toggle Native TOC"; ObjectID = "Tgl-Nat-TOC"; */
+"Tgl-Nat-TOC.title" = "ネイティブ目次の表示切替";
+
 /* Class = "NSMenuItem"; title = "Zoom In"; ObjectID = "Zoom-In-Menu"; */
 "Zoom-In-Menu.title" = "文字を大きく";
 

@@ -732,13 +732,17 @@ class ViewController:
         }
 
         if menuItem.action == #selector(toggleTOC(_:)) {
-            // PPT has no TOC surface at all. In edit / split / pure preview
-            // the command toggles the native editor outline (needs the
-            // three-column split); presentation keeps the preview's own TOC.
-            guard !sessionMagicPPTMode else { return false }
-            if sessionPresentationMode {
-                return editArea.markdownView != nil
-            }
+            // ⌘5 restores the original preview TOC behavior: the outline lives
+            // in the preview WebView, so it is only meaningful when the
+            // preview exists, and not in PPT (reveal.js template has no TOC).
+            return editArea.markdownView != nil && !sessionMagicPPTMode
+        }
+
+        if menuItem.action == #selector(toggleNativeTOC(_:)) {
+            // ⌘6 toggles the native editor outline column (edit / split /
+            // pure preview). Presentation and PPT keep the preview's own TOC
+            // instead.
+            guard !sessionMagicPPTMode, !sessionPresentationMode else { return false }
             return splitView.subviews.count >= 3
         }
 

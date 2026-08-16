@@ -1454,21 +1454,18 @@ extension ViewController {
         togglePresentation()
     }
 
-    /// Toggle the table-of-contents panel. Routing depends on the current
-    /// mode:
-    /// - Edit / split / pure preview: toggles the native editor outline
-    ///   column (preview clicks navigate the preview; see
-    ///   `jumpToEditorTOCItem`).
-    /// - Presentation: fullscreen slide surface, keeps the preview's own TOC.
-    /// - PPT: disabled (also enforced by `validateMenuItem`).
+    /// Toggle the preview WebView's table of contents (⌘5). This restores the
+    /// original preview-TOC behavior; the native editor outline moved to ⌘6
+    /// (`toggleNativeTOC`).
     @IBAction func toggleTOC(_ sender: Any) {
+        editArea.markdownView?.toggleTOC()
+    }
+
+    /// Toggle the native editor outline column (⌘6). Usable in edit / split /
+    /// pure preview; presentation keeps the preview's own TOC (⌘5) and PPT has
+    /// no TOC surface (also enforced by `validateMenuItem`).
+    @IBAction func toggleNativeTOC(_ sender: Any) {
         guard !sessionMagicPPTMode else { return }
-
-        if sessionPresentationMode {
-            editArea.markdownView?.toggleTOC()
-            return
-        }
-
         setEditorTOCVisible(!isEditorTOCVisible)
     }
 

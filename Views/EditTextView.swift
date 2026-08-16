@@ -398,6 +398,10 @@ class EditTextView: NSTextView, @preconcurrency NSTextFinderClient {
         menuManager?.toggleTOC()
     }
 
+    @IBAction func toggleNativeTOC(_ sender: Any) {
+        menuManager?.toggleNativeTOC()
+    }
+
     // MARK: - Quick Input Menu Actions
     @IBAction func insertTimeShortcut(_ sender: Any) {
         insertShortcutText("time")

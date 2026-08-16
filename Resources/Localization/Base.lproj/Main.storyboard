@@ -261,6 +261,11 @@ CA
                                                 <action selector="toggleTOC:" target="N0L-g4-qwj" id="Act-Tgl-TOC"/>
                                             </connections>
                                         </menuItem>
+                                        <menuItem title="Toggle Native TOC" image="list.bullet" catalog="system" keyEquivalent="6" identifier="viewMenu.toggleNativeTOC" id="Tgl-Nat-TOC">
+                                            <connections>
+                                                <action selector="toggleNativeTOC:" target="N0L-g4-qwj" id="Act-Tgl-Nat-TOC"/>
+                                            </connections>
+                                        </menuItem>
                                         <menuItem isSeparatorItem="YES" id="Sep-Before-Zoom"/>
                                         <menuItem title="Zoom In" keyEquivalent="+" identifier="viewMenu.zoomIn" id="Zoom-In-Menu">
                                             <connections>
