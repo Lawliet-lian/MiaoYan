@@ -3,18 +3,19 @@
  */
 
 .darkmode {
-  /* Base Colors */
-  --bg-color: #23282D;
+  /* Base Colors - MarkPad 风格纯黑深灰（VS Code #181818） */
+  --bg-color: #181818;
   --text-color: #E7E9EA;
   --text-secondary: #ABB2BF;
   --link-color: #1D9BF0;
   --border-color: #454545;
-  --code-bg: #282e33;
-  --diagram-bg: #282e33;
+  /* 代码块背景：比主背景 +4.7% 亮度差，保持层次可辨识 */
+  --code-bg: #242426;
+  --diagram-bg: #242426;
   --blockquote-border-color: #545454;
 
-  /* Mermaid Diagram */
-  --mermaid-node-bg: #2f353d;
+  /* Mermaid Diagram - 同步纯灰阶，去掉原有的蓝调 */
+  --mermaid-node-bg: #2A2A2C;
   --mermaid-text-color: #E7E9EA;
   --mermaid-border-color: #49515a;
   --mermaid-line-color: #54C59F;
@@ -116,5 +117,6 @@
 }
 
 .darkmode .lightense-backdrop {
-  background-color: rgba(35, 40, 45, .95) !important;
+  /* 放大镜遮罩背景：与 --bg-color #181818 一致，即 rgba(24, 24, 24, 0.95) */
+  background-color: rgba(24, 24, 24, .95) !important;
 }

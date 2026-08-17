@@ -104,7 +104,8 @@ enum Theme {
 
         return Color(name: nil) { appearance in
             if appearance.isDark {
-                return Color(srgbRed: 0x42 / 255.0, green: 0x4A / 255.0, blue: 0x54 / 255.0, alpha: 1.0)
+                // MarkPad 风格纯灰阶选中态 #3A3A3C（去掉原有的蓝调 0x424A54）
+                return Color(srgbRed: 0x3A / 255.0, green: 0x3A / 255.0, blue: 0x3C / 255.0, alpha: 1.0)
             }
 
             return Color(srgbRed: 0xCC / 255.0, green: 0xCC / 255.0, blue: 0xCC / 255.0, alpha: 0.96)
@@ -266,7 +267,8 @@ enum Theme {
     }
 
     static var previewDarkBackgroundColor: Color {
-        NSColor(srgbRed: 0x23 / 255.0, green: 0x28 / 255.0, blue: 0x2D / 255.0, alpha: 1.0)
+        // MarkPad 风格纯黑深灰 #181818（VS Code 风格主背景色）
+        NSColor(srgbRed: 0x18 / 255.0, green: 0x18 / 255.0, blue: 0x18 / 255.0, alpha: 1.0)
     }
 
     static func configureChromeIconButton(_ button: NSButton?) {

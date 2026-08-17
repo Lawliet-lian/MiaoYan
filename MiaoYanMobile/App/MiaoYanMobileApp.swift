@@ -6,13 +6,14 @@ enum MobileTheme {
     static let warmAccent = Color(red: 0.93, green: 0.48, blue: 0.28)
     static let paperUIColor = UIColor { traits in
         traits.userInterfaceStyle == .dark
-            // Slightly lifted from pure black so eyes have something to anchor on.
-            ? UIColor(red: 0.085, green: 0.090, blue: 0.085, alpha: 1)
+            // MarkPad 风格纯黑深灰 #181818（与 macOS 端统一的 VS Code 风格主背景）
+            ? UIColor(red: 0.094, green: 0.094, blue: 0.094, alpha: 1)
             : UIColor(red: 0.975, green: 0.965, blue: 0.94, alpha: 1)
     }
     static let surfaceUIColor = UIColor { traits in
         traits.userInterfaceStyle == .dark
-            ? UIColor(red: 0.135, green: 0.140, blue: 0.130, alpha: 1)
+            // 比 paper +4.7% 亮度差的次级面板底色 #242426（与 macOS code-bg 同层级）
+            ? UIColor(red: 0.141, green: 0.141, blue: 0.149, alpha: 1)
             : UIColor(red: 1.0, green: 0.992, blue: 0.972, alpha: 1)
     }
     static let paper = Color(
@@ -26,7 +27,8 @@ enum MobileTheme {
     static let elevatedSurface = Color(
         uiColor: UIColor { traits in
             traits.userInterfaceStyle == .dark
-                ? UIColor(red: 0.175, green: 0.180, blue: 0.165, alpha: 1)
+                // elevated 卡片层 #2A2A2C（比 surface 再高一档，与 macOS mermaid-node-bg 同层级）
+                ? UIColor(red: 0.165, green: 0.165, blue: 0.173, alpha: 1)
                 : UIColor(red: 1.0, green: 0.998, blue: 0.988, alpha: 1)
         })
     /// Reduced from previous (0.91, 0.90, 0.86) to (0.84, 0.82, 0.78);

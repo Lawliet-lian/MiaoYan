@@ -34,15 +34,17 @@ class HtmlManager {
         return """
             @media print, screen {
                :root {
-                   --bg-color: #23282D !important;
+                   /* MarkPad 风格纯黑深灰 #181818（VS Code 风格主背景色） */
+                   --bg-color: #181818 !important;
                    --text-color: #E7E9EA !important;
-                   --code-bg: #282e33 !important;
-                   --side-bar-bg-color: #23282D !important;
+                   /* 代码块背景：比主背景 +4.7% 亮度差 */
+                   --code-bg: #242426 !important;
+                   --side-bar-bg-color: #181818 !important;
                    --control-text-color: #999 !important;
                    --primary-color: #fd8258 !important;
                }
                html, body {
-                   background-color: #23282D !important;
+                   background-color: #181818 !important;
                    color: #E7E9EA !important;
                }
             }
