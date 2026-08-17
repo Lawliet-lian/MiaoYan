@@ -161,6 +161,13 @@ final class GeneralPrefsViewController: BasePrefsViewController {
             if let vc = ViewController.shared() {
                 vc.editArea.recreatePreviewView()
 
+                // 刷新所有子视图 pane 的 layer.backgroundColor：手动切外观时必须显式调用
+                // applyModernChromeStyling() 重新 resolve cgColor，否则 cgColor 快照还是
+                // 上一个 appearance 下解析的静态色（TOC / 侧栏会透出旧的深黑底）。
+                // 对齐 System 模式 handleAppearanceChange() 的完整刷新链路。
+                vc.applyModernChromeStyling()
+                vc.updateToolbarButtonTints()
+
                 let sidebarSelectedRows = vc.storageOutlineView.selectedRowIndexes
                 let notesSelectedRows = vc.notesTableView.selectedRowIndexes
 

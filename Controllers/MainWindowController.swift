@@ -338,6 +338,13 @@ class MainWindowController: NSWindowController, NSWindowDelegate, NSWindowRestor
         }
 
         if let vc = AppContext.shared.viewController {
+            // 统一在此刷新所有子视图 pane 的 layer.backgroundColor（TOC / 侧栏 / 笔记列表 /
+            // 头部 / 分割线 / 工具栏图标 tint），避免每个 call site（偏好设置手动切外观、
+            // System KVO、makeNew 等）都要记得单独调用 applyModernChromeStyling()。
+            // cgColor 是静态快照，不会跟随 NSAppearance 自动更新，必须显式重设。
+            vc.applyModernChromeStyling()
+            vc.updateToolbarButtonTints()
+
             if let sidebarSplit = vc.sidebarSplitView as? SidebarSplitView {
                 sidebarSplit.displayIfNeeded()
             }
