@@ -157,9 +157,7 @@ final class PdfExportController: NSObject {
                 });
 
                 var toc = document.querySelector('.toc-nav');
-                var tocTrigger = document.querySelector('.toc-hover-trigger');
                 if (toc) toc.style.display = 'none';
-                if (tocTrigger) tocTrigger.style.display = 'none';
 
                 void document.body.offsetHeight;
                 return true;

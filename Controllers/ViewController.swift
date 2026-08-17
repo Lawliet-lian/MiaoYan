@@ -541,6 +541,11 @@ class ViewController:
         }
         handleForAppMode()
         applyEditorModePreferenceChange()
+        // Re-apply the persisted TOC state after the split view has finished
+        // its first real layout: applying it in viewDidLoad gets undone by
+        // NSSplitView's own layout pass, which re-shows a container that was
+        // hidden before the window existed.
+        applySavedEditorTOCState()
 
         // Always start in edit mode for simplicity and reliability
         // User can manually enable preview mode with keyboard shortcut if needed

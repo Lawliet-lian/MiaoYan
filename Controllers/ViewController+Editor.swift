@@ -320,7 +320,6 @@ extension ViewController {
 
         // Force layout update to ensure correct bounds
         contentSplitView.layoutSubtreeIfNeeded()
-
         preparePreviewContainer(hidden: false)
 
         // Ensure editor content reflects the selected note alongside preview
@@ -612,7 +611,6 @@ extension ViewController {
         }
 
         needsEditorModeUpdateAfterPreview = false
-
         if sessionSplitMode {
             enableSplitViewMode()
         } else {

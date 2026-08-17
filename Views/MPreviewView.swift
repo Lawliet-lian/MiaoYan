@@ -110,7 +110,6 @@ class MPreviewView: WKWebView, WKUIDelegate {
         userContentController.add(HandlerCodeCopy(), name: "notification")
         userContentController.add(HandlerRevealBackgroundColor(), name: "revealBackgroundColor")
         userContentController.add(HandlerPreviewScroll(), name: "previewScroll")
-        userContentController.add(HandlerTOCTip(), name: "tocTipClicked")
 
         let configuration = WKWebViewConfiguration()
         configuration.userContentController = userContentController
@@ -513,7 +512,6 @@ class MPreviewView: WKWebView, WKUIDelegate {
 
         // Set up scroll observation after WebView is fully loaded
         setupScrollObserver()
-        showTOCTipIfNeeded()
 
         // Drain any updateContent calls that arrived while the template was
         // still loading (typical: user pastes immediately after entering
@@ -1161,58 +1159,4 @@ class MPreviewView: WKWebView, WKUIDelegate {
         return HtmlManager.processImages(in: html, imagesStorage: imagesStorage)
     }
 
-    // MARK: - TOC Hint
-    func showTOCTipIfNeeded() {
-        guard !UserDefaultsManagement.hasShownTOCTip else { return }
-        UserDefaultsManagement.hasShownTOCTip = true
-
-        // Inject Red Dot script
-        let script = """
-                (function() {
-                    var trigger = document.querySelector('.toc-hover-trigger');
-                    if (!trigger) return;
-
-                    // Avoid duplicate dots
-                    if (document.getElementById('toc-red-dot-hint')) return;
-
-                    var dot = document.createElement('div');
-                    dot.id = 'toc-red-dot-hint';
-                    dot.innerText = 'TOC';
-                    dot.style.position = 'absolute';
-                    dot.style.backgroundColor = '#FF3B30'; // System Red
-                    dot.style.color = 'white';
-                    dot.style.fontSize = '8px';
-                    dot.style.fontWeight = 'bold';
-                    dot.style.padding = '2px 5px';
-                    dot.style.borderRadius = '8px';
-                    dot.style.top = '12px'; // Adjust based on visual testing
-                    dot.style.right = '12px';
-                    dot.style.zIndex = '9999';
-                    dot.style.boxShadow = '0 1px 3px rgba(0,0,0,0.2)';
-                    dot.style.cursor = 'pointer';
-                    dot.style.pointerEvents = 'auto'; // Make badge clickable directly
-
-                    trigger.appendChild(dot);
-
-                    // Function to dismiss
-                    function dismiss() {
-                        if (dot) dot.remove();
-                        window.webkit.messageHandlers.tocTipClicked.postMessage("clicked");
-                    }
-
-                    // Click on badge: dismiss AND click trigger (to open TOC)
-                    dot.addEventListener('click', function(e) {
-                        e.stopPropagation(); // Stop bubbling to avoid double triggering if logic is complex
-                        dismiss();
-                        trigger.click(); // Manually trigger the TOC opening
-                    }, { once: true });
-
-                    // Click on trigger (e.g. user missed the badge but hit the area): dismiss
-                    trigger.addEventListener('click', function() {
-                        dismiss();
-                    }, { once: true });
-                })();
-            """
-        executeJavaScriptWhenReady(script)
-    }
 }

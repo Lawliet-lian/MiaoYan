@@ -350,8 +350,6 @@ const MiaoYanCommon = {
 // TOC configuration constants
 const TOC_CONFIG = {
   MIN_HEADINGS: 2,
-  MIN_SCREEN_WIDTH: 600,
-  AUTO_HIDE_DELAY: 3000,
   INIT_DELAY: 200,
   SCROLL_OFFSET_TOP: 60,
   SCROLL_OFFSET_BOTTOM: 80,
@@ -365,15 +363,13 @@ const TOC_CONFIG = {
 
   function initTOC() {
     const nav = document.querySelector('.toc-nav');
-    const trigger = document.querySelector('.toc-hover-trigger');
     const tocContainer = document.querySelector('.toc-content');
     const pinBtn = document.querySelector('.toc-pin-btn');
-    if (!nav || !trigger || !tocContainer) return;
+    if (!nav || !tocContainer) return;
 
     // Check if we have enough headings (only count h1-h3 for TOC)
     const headings = document.querySelectorAll('#write h1, #write h2, #write h3');
     if (headings.length < TOC_CONFIG.MIN_HEADINGS) {
-      trigger.style.display = 'none';
       return;
     }
 
@@ -392,33 +388,16 @@ const TOC_CONFIG = {
       });
     }
 
-    let fadeTimer = null;
     let scrollTimeout = null;
     let isPinned = localStorage.getItem('toc-pinned') === 'true';
 
-    const startAutoHideTimer = () => {
-      if (isPinned) return;
-      clearTimeout(fadeTimer);
-      fadeTimer = setTimeout(() => {
-        trigger.style.opacity = '0';
-      }, TOC_CONFIG.AUTO_HIDE_DELAY);
-    };
-
-    const cancelAutoHideTimer = () => {
-      clearTimeout(fadeTimer);
-      trigger.style.opacity = '';
-    };
-
     const show = () => {
       nav.classList.add('active');
-      trigger.classList.add('hidden');
-      cancelAutoHideTimer();
     };
 
     const hide = () => {
       if (isPinned) return;
       nav.classList.remove('active');
-      trigger.classList.remove('hidden');
     };
 
     // Menu / keyboard toggle: opening pins the panel so it stays visible
@@ -430,8 +409,6 @@ const TOC_CONFIG = {
         localStorage.setItem('toc-pinned', 'false');
         nav.classList.remove('pinned');
         nav.classList.remove('active');
-        trigger.classList.remove('hidden');
-        startAutoHideTimer();
       } else {
         isPinned = true;
         localStorage.setItem('toc-pinned', 'true');
@@ -476,7 +453,6 @@ const TOC_CONFIG = {
         } else {
           nav.classList.remove('pinned');
           hide();
-          startAutoHideTimer();
         }
       });
     }
@@ -487,18 +463,8 @@ const TOC_CONFIG = {
       show();
     }
 
-    trigger.addEventListener('mouseenter', show);
-    nav.addEventListener('mouseenter', show);
-
-    trigger.addEventListener('mouseover', () => {
-      cancelAutoHideTimer();
-      trigger.style.opacity = '0.2';
-    });
-
     document.addEventListener('mousedown', (e) => {
-      if (nav.classList.contains('active') &&
-          !nav.contains(e.target) &&
-          !trigger.contains(e.target)) {
+      if (nav.classList.contains('active') && !nav.contains(e.target)) {
         hide();
       }
     });
@@ -508,17 +474,6 @@ const TOC_CONFIG = {
         hide();
       }
     });
-
-    const handleResize = () => {
-      trigger.style.display = window.innerWidth < TOC_CONFIG.MIN_SCREEN_WIDTH ? 'none' : '';
-      if (window.innerWidth < TOC_CONFIG.MIN_SCREEN_WIDTH) hide();
-    };
-    window.addEventListener('resize', handleResize);
-    handleResize();
-
-    if (!isPinned) {
-      startAutoHideTimer();
-    }
   }
 
   // Wait for tocbot to be available and render TOC

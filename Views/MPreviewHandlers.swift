@@ -1,14 +1,6 @@
 import Cocoa
 import WebKit
 
-class HandlerTOCTip: NSObject, WKScriptMessageHandler {
-    func userContentController(
-        _ userContentController: WKUserContentController,
-        didReceive message: WKScriptMessage
-    ) {
-        UserDefaultsManagement.hasShownTOCTip = true
-    }
-}
 class HandlerCheckbox: NSObject, WKScriptMessageHandler {
     func userContentController(
         _ userContentController: WKUserContentController,

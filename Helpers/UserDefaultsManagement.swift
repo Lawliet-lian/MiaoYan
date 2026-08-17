@@ -339,15 +339,6 @@ public enum UserDefaultsManagement {
         }
     }
 
-    static var hasShownTOCTip: Bool {
-        get {
-            return UserDefaults.standard.bool(forKey: "hasShownTOCTip")
-        }
-        set {
-            UserDefaults.standard.set(newValue, forKey: "hasShownTOCTip")
-        }
-    }
-
     static var isSingleMode: Bool {
         get {
             if let result = UserDefaults.standard.object(forKey: Constants.IsSingleMode) as? Bool {

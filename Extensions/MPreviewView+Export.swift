@@ -258,7 +258,6 @@ extension MPreviewView {
             : ""
         let exportLayoutCSS = """
                \(layoutCSS)
-               .toc-hover-trigger,
                .toc-pin-btn,
                .toc-nav {
                    display: none !important;
@@ -306,7 +305,7 @@ extension MPreviewView {
     private func hideTOCTriggersForExport() {
         let script = """
                 (function() {
-                    var selectors = ['.toc-hover-trigger', '.toc-pin-btn', '.toc-nav'];
+                    var selectors = ['.toc-pin-btn', '.toc-nav'];
                     selectors.forEach(function(sel) {
                         document.querySelectorAll(sel).forEach(function(el) {
                             el.dataset.exportOriginalDisplay = el.style.display || '';
