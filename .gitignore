@@ -95,7 +95,6 @@ package-lock.json
 appcast.xml
 
 # Documentation & Demo files
-docs/
 index.html
 Resources/DownView.bundle/demo.html
 

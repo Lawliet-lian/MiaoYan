@@ -33,12 +33,10 @@
 1. **Mac App Store**(付费,自动更新):
 
    <a href="https://apps.apple.com/cn/app/miaoyan/id6759252269"><img src="https://cdn.tw93.fun/uPic/C3Renh.png" width="160" alt="Download on the Mac App Store" /></a>
-
 2. **Homebrew**:
    ```bash
    brew install --cask miaoyan
    ```
-
 3. **GitHub Releases**: 从 [GitHub Releases](https://github.com/tw93/MiaoYan/releases/latest) 下载最新 DMG(macOS 11.5+)
 
 三种方式共享同一份代码,功能完全一致,同步更新。安装后在 iCloud 云盘、坚果云桌面同步目录或其他位置创建 `MiaoYan` 文件夹,打开设置 (⌘,) 指定存储位置,就可以开始写了。
@@ -84,8 +82,12 @@ miao update             # 更新 CLI
 - [Markdown 语法指南](Resources/Initial/妙言%20Markdown%20语法指南.md) - 完整语法演示,数学公式、图表等
 - [PPT 演示模式](Resources/Initial/妙言%20PPT.md) - 使用 `---` 分隔幻灯片的演示指南
 - [妙言 Agent Skill](skills/miaoyan) - 让 Agent 掌握妙言语法、附件、PPT 与 CLI 使用方式
+- 项目踩坑记录：`docs/project-pitfalls-log.md`
 
 运行 `npx skills add tw93/MiaoYan/skills/miaoyan -g` 安装官方 Skill。
+
+项目根目录下运行\`bash scripts/build.sh\`进行app打包
+
 
 ## 支持
 
@@ -102,6 +104,7 @@ miao update             # 更新 CLI
 - [raspu/Highlightr](https://github.com/raspu/Highlightr) - 语法高亮支持
 - [仓耳字库](https://tsanger.cn/product) - 仓耳今楷字体(默认字体)
 - [hakimel/reveal.js](https://github.com/hakimel/reveal.js) - PPT 演示框架
+
 ## 协议
 
 MIT License - 欢迎自由使用与贡献
