@@ -16,6 +16,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     public var searchQuery: String?
     public var newName: String?
     public var newContent: String?
+    private var launchStartedAt = Date()
+    private var clearedSingleModePathAtLaunch: String?
     let appContext = AppContext.shared
     #if !APPSTORE
         private var updaterController: SPUStandardUpdaterController?
@@ -51,6 +53,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         migratePreferences()
+        launchStartedAt = Date()
+        let previousSingleModePath = UserDefaultsManagement.singleModePath
+        if !previousSingleModePath.isEmpty {
+            clearedSingleModePathAtLaunch = URL(fileURLWithPath: previousSingleModePath).resolvingSymlinksInPath().path
+        } else {
+            clearedSingleModePathAtLaunch = nil
+        }
         UserDefaultsManagement.clearSingleMode()
         let storage = appContext.storage
         storage.loadProjects()
@@ -185,6 +194,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             mainWindowController?.makeNew()
         }
         return true
+    }
+
+    func shouldIgnoreColdStartSingleModeReopen(fileURL: URL) -> Bool {
+        guard let previousPath = clearedSingleModePathAtLaunch else { return false }
+
+        let resolvedPath = fileURL.resolvingSymlinksInPath().path
+        guard resolvedPath == previousPath else { return false }
+
+        // Finder/LaunchServices 在冷启动时可能会把“上次 single mode 打开的文件”
+        // 当作 reopen 事件再次投递进来。对正常启动来说，这不是用户主动要恢复的布局。
+        // 这里只忽略启动早期、窗口尚未建立时的这一次 reopen，不影响应用运行中的正常打开文件。
+        let isColdStartWindow = Date().timeIntervalSince(launchStartedAt) < 15
+        let isMainWindowUnavailable = resolveViewController() == nil && mainWindowController?.window?.isVisible != true
+
+        return isColdStartWindow && isMainWindowUnavailable
     }
 
     func applyAppearance() {

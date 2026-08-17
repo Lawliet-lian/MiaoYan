@@ -58,6 +58,7 @@ class ViewController:
     var savedEditorSelection: NSRange?
     var savedEditorScrollRatio: CGFloat?
     var savedEditorNoteURL: URL?
+    var isEnforcingDefaultStartupLayout = false
     var sessionState: EditorSessionState { appContext.sessionState }
 
     var sessionPreviewMode: Bool {
@@ -540,19 +541,11 @@ class ViewController:
             }
         }
         handleForAppMode()
-        applyEditorModePreferenceChange()
-        // Re-apply the persisted TOC state after the split view has finished
-        // its first real layout: applying it in viewDidLoad gets undone by
-        // NSSplitView's own layout pass, which re-shows a container that was
-        // hidden before the window existed.
-        applySavedEditorTOCState()
-
-        // Always start in edit mode for simplicity and reliability
-        // User can manually enable preview mode with keyboard shortcut if needed
-        if sessionPreviewMode {
-            // Reset preview flag to ensure clean edit mode startup
-            sessionPreviewMode = false
-        }
+        sessionPreviewMode = false
+        sessionPresentationMode = false
+        sessionMagicPPTMode = false
+        isEnforcingDefaultStartupLayout = true
+        applyDefaultStartupThreeColumnLayout()
 
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
@@ -560,6 +553,16 @@ class ViewController:
             self.updateSidebarColumnWidth()
             self.checkSidebarConstraint()
             self.checkTitlebarTopConstraint()
+        }
+
+        // Installed builds can finish project/note restoration slightly later
+        // than Xcode-run builds. Re-apply the deterministic startup layout
+        // after those async startup callbacks settle, then allow normal panel
+        // toggles again.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            guard let self else { return }
+            self.applyDefaultStartupThreeColumnLayout()
+            self.isEnforcingDefaultStartupLayout = false
         }
     }
 
@@ -588,25 +591,19 @@ class ViewController:
         if UserDefaultsManagement.isSingleMode {
             toastInSingleMode()
         } else if UserDefaultsManagement.isFirstLaunch {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                self.showSidebar("")
-            }
             UserDefaultsManagement.isFirstLaunch = false
             UserDefaultsManagement.hasFixedInitialization = true
+            ensureInitialProjectSelection()
         } else {
             ensureInitialProjectSelection()
         }
     }
 
     private func applyLegacySidebarWidthFixIfNeeded() {
+        // Startup layout is now deterministic and no longer restores the old
+        // sidebar/notelist combination. Keep this hook as a no-op marker so
+        // older callers remain stable, but do not mutate panel visibility.
         guard !UserDefaultsManagement.hasFixedInitialization else { return }
-        guard !UserDefaultsManagement.isFirstLaunch else { return }
-        view.layoutSubtreeIfNeeded()
-        sidebarSplitView?.layoutSubtreeIfNeeded()
-        if sidebarWidth > 0 {
-            // Re-apply sidebar visibility to enforce width constraints
-            setSidebarVisible(true)
-        }
         UserDefaultsManagement.hasFixedInitialization = true
     }
 
@@ -668,6 +665,14 @@ class ViewController:
         } else if let selectedNote = notesTableView.getSelectedNote() {
             UserDefaultsManagement.lastSelectedURL = selectedNote.url
         }
+
+        // Persist the actual visible panel combination as a final source of
+        // truth on quit/window-close. This covers layouts restored or changed
+        // by drag/toggle flows that may not all funnel through one explicit
+        // "save" action.
+        UserDefaultsManagement.sidebarVisible = isSidebarVisible
+        UserDefaultsManagement.notelistVisible = isNotelistVisible
+        UserDefaultsManagement.editorTOCVisible = isEditorTOCVisible
 
         notesTableView.saveScrollPosition()
     }
@@ -1011,8 +1016,12 @@ class ViewController:
         storageOutlineView.selectionHighlightStyle = .none
         // Ensure proper display after data is set
         storageOutlineView.needsDisplay = true
-        sidebarSplitView.autosaveName = "SidebarSplitView"
-        splitView.autosaveName = "EditorSplitView"
+        // Startup layout is now deterministic (`TOC + editor + preview`).
+        // Do not let AppKit restore previous split-view frames for the outer
+        // containers, otherwise installed-app launches can replay stale
+        // sidebar / note-list widths and override our startup layout.
+        sidebarSplitView.autosaveName = ""
+        splitView.autosaveName = ""
         // Assign an autosave name so the sidebar outline view keeps its expansion state
         storageOutlineView.autosaveExpandedItems = true
         storageOutlineView.autosaveName = "SidebarOutlineView"
@@ -1043,7 +1052,6 @@ class ViewController:
         configureEditorContentSplitView()
         configureEditorTOC()
         ensurePanelsVisibleAtStartup()
-        applySavedEditorTOCState()
         applyModernChromeStyling()
     }
 
@@ -1279,7 +1287,11 @@ class ViewController:
                 if isSingleModeDirectory {
                     self.showSidebar("")
                 } else {
-                    self.showSidebar("")
+                    // Opening one standalone Markdown file should not inherit
+                    // the project-browser layout. Keep this path on the
+                    // product default of `TOC + editor + preview`, then select
+                    // the requested note inside that reduced chrome.
+                    self.applySingleFileOpenThreeColumnLayout()
                     self.selectSingleModeNote(for: singleModeUrl)
                 }
             }

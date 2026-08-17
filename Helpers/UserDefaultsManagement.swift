@@ -157,6 +157,8 @@ public enum UserDefaultsManagement {
         static let EditorContentSplitPosition = "editorContentSplitPosition"
         static let EditorTOCVisible = "editorTOCVisible"
         static let EditorTOCWidth = "editorTOCWidth"
+        static let SidebarVisible = "sidebarVisible"
+        static let NotelistVisible = "notelistVisible"
         static let EditorModeKey = "editorMode"
     }
 
@@ -903,6 +905,35 @@ public enum UserDefaultsManagement {
         }
         set {
             UserDefaults.standard.set(Double(newValue), forKey: Constants.EditorTOCWidth)
+        }
+    }
+
+    /// Persisted visibility for the project sidebar. Defaults to `true` so a
+    /// fresh install keeps the classic full layout. Only user-driven layout
+    /// toggles should write this key.
+    static var sidebarVisible: Bool {
+        get {
+            if let result = UserDefaults.standard.object(forKey: Constants.SidebarVisible) as? Bool {
+                return result
+            }
+            return true
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Constants.SidebarVisible)
+        }
+    }
+
+    /// Persisted visibility for the note list column. Defaults to `true` so a
+    /// fresh install starts in the standard multi-column layout.
+    static var notelistVisible: Bool {
+        get {
+            if let result = UserDefaults.standard.object(forKey: Constants.NotelistVisible) as? Bool {
+                return result
+            }
+            return true
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Constants.NotelistVisible)
         }
     }
 

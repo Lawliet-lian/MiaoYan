@@ -8,6 +8,7 @@ extension ViewController {
         static let minSidebarWidth: CGFloat = 138
         static let maxSidebarWidth: CGFloat = 280
         static let defaultNotelistWidth: CGFloat = 280
+        static let defaultStartupTOCWidth: CGFloat = 180
         static let narrowThreshold: CGFloat = 50
         static let searchTopSidebarCollapsed: CGFloat = 30.0
         static let searchTopNormal: CGFloat = 13.0
@@ -35,12 +36,12 @@ extension ViewController {
         return splitView.subviews[0].frame.width
     }
 
-    private var isSidebarVisible: Bool {
+    var isSidebarVisible: Bool {
         guard let sidebarView = sidebarSplitView?.subviews.first else { return false }
         return !sidebarView.isHidden && sidebarWidth > Theme.Metrics.collapsedSplitWidthEpsilon
     }
 
-    private var isNotelistVisible: Bool {
+    var isNotelistVisible: Bool {
         guard let noteListView = splitView?.subviews.first else { return false }
         return !noteListView.isHidden && notelistWidth > Theme.Metrics.collapsedSplitWidthEpsilon
     }
@@ -116,6 +117,9 @@ extension ViewController {
     }
 
     func setSidebarVisible(_ visible: Bool, saveState: Bool = true) {
+        if visible, isEnforcingDefaultStartupLayout, !UserDefaultsManagement.isSingleMode {
+            return
+        }
         let sidebarView = sidebarSplitView.subviews.first
         if visible {
             sidebarView?.isHidden = false
@@ -134,6 +138,9 @@ extension ViewController {
             sidebarSplitView.setPosition(0, ofDividerAt: 0)
             sidebarView?.isHidden = true
         }
+        if saveState {
+            UserDefaultsManagement.sidebarVisible = visible
+        }
         editArea.updateTextContainerInset()
         sidebarSplitView?.layoutSubtreeIfNeeded()
         (sidebarSplitView as? ThemedSplitView)?.applyDividerColor()
@@ -148,10 +155,75 @@ extension ViewController {
         let shouldShowNotelist = isNotelistVisible
 
         if shouldShowSidebar && !shouldShowNotelist {
-            showNoteList("")
+            setNotelistVisible(true, saveState: false)
         }
 
         normalizeNotelistWidth(saveState: false)
+    }
+
+    /// Startup is intentionally deterministic now: each launch resets to a
+    /// stable default layout instead of replaying the previous session's panel
+    /// combination. The default is:
+    /// - hide sidebar and note list
+    /// - show native TOC with a reasonable fixed width
+    /// - force split mode so editor and preview share the remaining width 50/50
+    func applyDefaultStartupThreeColumnLayout() {
+        guard !UserDefaultsManagement.isSingleMode else { return }
+
+        collapseNotelist(saveState: false)
+        UserDefaultsManagement.sidebarVisible = false
+        UserDefaultsManagement.notelistVisible = false
+        UserDefaultsManagement.editorTOCVisible = true
+        splitView.preferredTOCWidth = LayoutConstants.defaultStartupTOCWidth
+        setEditorTOCVisible(true, saveState: false)
+
+        UserDefaultsManagement.editorContentSplitPosition = 0
+        sessionSplitMode = true
+        applyEditorModePreferenceChange()
+
+        view.layoutSubtreeIfNeeded()
+        splitView.layoutSubtreeIfNeeded()
+        editorContentSplitView?.layoutSubtreeIfNeeded()
+    }
+
+    /// Single-file open should start from the same visual baseline as a clean
+    /// app launch instead of inheriting the project browser layout. This path
+    /// is intentionally transient:
+    /// - keep sidebar + note list collapsed
+    /// - keep native TOC visible with the default width
+    /// - force editor + preview back to a balanced side-by-side split
+    ///
+    /// We avoid persisting sidebar / note list visibility here because opening
+    /// one file from Finder should not rewrite the user's normal library
+    /// layout preferences.
+    func applySingleFileOpenThreeColumnLayout() {
+        collapseNotelist(saveState: false)
+        splitView.preferredTOCWidth = LayoutConstants.defaultStartupTOCWidth
+        setEditorTOCVisible(true, saveState: false)
+
+        // Reset the content split ratio for this entry path so a previously
+        // saved editor-only / uneven split cannot leak into single-file open.
+        UserDefaultsManagement.editorContentSplitPosition = 0
+        sessionSplitMode = true
+        applyEditorModePreferenceChange()
+
+        view.layoutSubtreeIfNeeded()
+        splitView.layoutSubtreeIfNeeded()
+        editorContentSplitView?.layoutSubtreeIfNeeded()
+    }
+
+    /// Restores the user-selected sidebar / note list visibility after the
+    /// initial AppKit layout pass has completed. Doing this in `viewDidLoad`
+    /// is too early: later split-view sizing and mode setup can overwrite the
+    /// restored state and make relaunch look "random".
+    func applySavedPanelVisibilityState() {
+        guard !UserDefaultsManagement.isSingleMode else { return }
+
+        let shouldShowNotelist = UserDefaultsManagement.notelistVisible
+        let shouldShowSidebar = shouldShowNotelist && UserDefaultsManagement.sidebarVisible
+
+        setNotelistVisible(shouldShowNotelist, saveState: false)
+        setSidebarVisible(shouldShowSidebar, saveState: false)
     }
 
     /// Shows or hides the native editor TOC column.
@@ -214,6 +286,9 @@ extension ViewController {
     }
 
     private func setNotelistVisible(_ visible: Bool, saveState: Bool = true) {
+        if visible, isEnforcingDefaultStartupLayout, !UserDefaultsManagement.isSingleMode {
+            return
+        }
         let noteListView = splitView.subviews.first
         if visible {
             isRestoringNotelistVisibility = true
@@ -242,6 +317,13 @@ extension ViewController {
             splitView.setPosition(0, ofDividerAt: 0)
             noteListView?.isHidden = true
         }
+        if saveState {
+            UserDefaultsManagement.notelistVisible = visible
+            if !visible {
+                // Sidebar cannot be visible without the note list column.
+                UserDefaultsManagement.sidebarVisible = false
+            }
+        }
         editArea.updateTextContainerInset()
         splitView.layoutSubtreeIfNeeded()
         if visible {
@@ -265,7 +347,7 @@ extension ViewController {
         collapseNotelist(saveState: saveState)
     }
 
-    private func collapseNotelist(saveState: Bool = true) {
+    func collapseNotelist(saveState: Bool = true) {
         setNotelistVisible(false, saveState: saveState)
         if isSidebarVisible {
             setSidebarVisible(false, saveState: saveState)

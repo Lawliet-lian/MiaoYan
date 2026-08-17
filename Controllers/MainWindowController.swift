@@ -21,7 +21,8 @@ class MainWindowController: NSWindowController, NSWindowDelegate, NSWindowRestor
         window?.titleVisibility = .hidden
         window?.titlebarAppearsTransparent = true
         windowFrameAutosaveName = "myMainWindow"
-        window?.restorationClass = MainWindowController.self
+        window?.isRestorable = false
+        window?.restorationClass = nil
         window?.delegate = self
 
         updateAlwaysOnTopState()

@@ -93,7 +93,6 @@ class EditorContentSplitView: NSSplitView {
     private func setup() {
         isVertical = true
         dividerStyle = .thin
-        autosaveName = "EditorContentSplitView"
         delegate = self
     }
 

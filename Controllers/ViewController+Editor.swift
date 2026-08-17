@@ -676,7 +676,7 @@ extension ViewController {
 
         sessionPresentationMode = true
         savePresentationLayout()
-        hideNoteList("")
+        collapseNotelist(saveState: false)
         setEditorTOCVisible(false, saveState: false)
         formatButton.isHidden = true
         previewButton.isHidden = true
@@ -802,9 +802,8 @@ extension ViewController {
 
         sessionMagicPPTMode = true
         savePresentationLayout()
-        hideNoteList("")
+        collapseNotelist(saveState: false)
         setEditorTOCVisible(false, saveState: false)
-        hideNoteList("")
         formatButton.isHidden = true
         previewButton.isHidden = true
         toggleListButton?.isHidden = true

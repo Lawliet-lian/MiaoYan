@@ -31,6 +31,9 @@ extension AppDelegate {
         }
         switch scheme {
         case HandledSchemes.file.rawValue:
+            if let fileURL = urls.first, shouldIgnoreColdStartSingleModeReopen(fileURL: fileURL) {
+                return
+            }
             if ViewController.shared() != nil {
                 openNotes(urls: urls)
             } else {
