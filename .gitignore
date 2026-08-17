@@ -84,6 +84,9 @@ package-lock.json
 *.out
 *.err
 
+# Trae IDE debug directory and diagnostic output (env files, ndjson logs, etc.)
+.dbg/
+
 # ====================
 # Project Specific
 # ====================
