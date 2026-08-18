@@ -135,6 +135,11 @@ class ViewController:
     nonisolated(unsafe) var editorTOCRefreshWorkItem: DispatchWorkItem?
     nonisolated(unsafe) var editorTOCHighlightWorkItem: DispatchWorkItem?
     nonisolated(unsafe) var editorTOCScrollObserver: NSObjectProtocol?
+    // TOC 点击会触发一次程序化 scrollRangeToVisible()，随后编辑器 clip-view
+    // 会立刻发出 boundsDidChange。若这时按“视口顶部标题”重算高亮，用户刚点中的
+    // 二级标题会被上方仍可见的父级/兄弟标题覆盖，看起来像“点错了”。这里记录一个
+    // 很短的抑制窗口，只忽略这次程序化滚动带来的高亮回算，不影响后续真实用户滚动。
+    var editorTOCHighlightSuppressedUntil: TimeInterval = 0
     nonisolated(unsafe) var splitScrollObserver: NSObjectProtocol?
     // Split scroll sync is intentionally coalesced into short bursts instead
     // of mirroring every single NSClipView bounds change immediately. Without
@@ -1133,6 +1138,18 @@ class ViewController:
         if sessionPreviewMode || sessionPresentationMode || sessionMagicPPTMode {
             editArea.markdownView?.scrollToLine(CGFloat(item.line), fallbackRatio: nil)
             return
+        }
+
+        // 先把 TOC 高亮锁定到用户刚点击的条目，再短暂抑制程序化滚动触发的
+        // “按视口顶部标题回算”逻辑。这样多级目录首次点击二级标题时，不会立刻
+        // 被上方仍然可见的一级标题覆盖成错误高亮。
+        if let tocView = editorTOCView,
+            let clickedIndex = tocView.items.firstIndex(of: item)
+        {
+            editorTOCHighlightWorkItem?.cancel()
+            editorTOCHighlightWorkItem = nil
+            suppressEditorTOCHighlightTemporarily()
+            tocView.setHighlightedIndex(clickedIndex)
         }
 
         editArea.setSelectedRange(item.characterRange)

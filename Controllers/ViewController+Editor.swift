@@ -97,6 +97,14 @@ extension ViewController {
     private enum EditorTOCTiming {
         static let refreshDebounce: TimeInterval = 0.18
         static let scrollHighlightThrottle: TimeInterval = 0.06
+        // 给 TOC 点击触发的程序化滚动一个很小的“静默期”，避免刚点击的标题高亮
+        // 立刻被基于视口顶部的回算覆盖。长度只需要跨过 NSTextView 那次滚动动画/布局。
+        static let jumpHighlightSuppression: TimeInterval = 0.20
+    }
+
+    func suppressEditorTOCHighlightTemporarily() {
+        editorTOCHighlightSuppressedUntil =
+            Date().timeIntervalSince1970 + EditorTOCTiming.jumpHighlightSuppression
     }
 
     /// Debounced entry point used by `textDidChange`. Cancels any pending
@@ -163,6 +171,13 @@ extension ViewController {
             !editorTOCContainerView.isHidden,
             !sessionMagicPPTMode
         else { return }
+
+        // 忽略 TOC 点击后那次程序化 scrollRangeToVisible() 带来的高亮回算。
+        // 否则首次打开多层级文档时，点击“说明”这类二级标题，编辑区已正确定位，
+        // 但 TOC 会因为视口顶部仍停留在更早标题附近而跳回错误的高亮项。
+        if Date().timeIntervalSince1970 < editorTOCHighlightSuppressedUntil {
+            return
+        }
 
         let items = tocView.items
         guard !items.isEmpty else {
