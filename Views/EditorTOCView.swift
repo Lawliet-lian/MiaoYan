@@ -11,6 +11,11 @@ final class EditorTOCView: NSView, NSTableViewDataSource, NSTableViewDelegate {
         private let disclosureButton = NSButton()
         private let label = NSTextField(labelWithString: "")
         private var indentConstraint: NSLayoutConstraint?
+        /// 上次配置好的标题、是否有子节点、展开态、左缩进。
+        /// 在测量“自适应宽度”时会直接复用，避免每次测算都重建 cell。
+        private(set) var lastTitle: String = ""
+        private(set) var lastHasChildren: Bool = false
+        private(set) var lastIndent: CGFloat = 0
 
         override init(frame frameRect: NSRect) {
             super.init(frame: frameRect)
@@ -61,6 +66,10 @@ final class EditorTOCView: NSView, NSTableViewDataSource, NSTableViewDelegate {
             indentConstraint?.constant = indent
             disclosureButton.isHidden = !hasChildren
             disclosureButton.image = hasChildren ? Self.disclosureImage(isExpanded: isExpanded) : nil
+
+            lastTitle = title
+            lastHasChildren = hasChildren
+            lastIndent = indent
         }
 
         private static func disclosureImage(isExpanded: Bool) -> NSImage? {
@@ -74,6 +83,9 @@ final class EditorTOCView: NSView, NSTableViewDataSource, NSTableViewDelegate {
     }
 
     var onSelectItem: ((EditorTOCItem) -> Void)?
+    /// 折叠/展开 disclosure 后，可见行集合发生变化时回调。
+    /// 上层用来根据新的“最长可见标题”重算目录栏宽度。
+    var onVisibilityChangedAfterDisclosure: (() -> Void)?
 
     private let scrollView = NSScrollView()
     private let tableView = NSTableView()
@@ -136,6 +148,33 @@ final class EditorTOCView: NSView, NSTableViewDataSource, NSTableViewDelegate {
             tableView.deselectAll(nil)
         }
         tableView.reloadData()
+    }
+
+    /// 根据当前“可见”标题计算一个“刚好放得下最长标题”的 TOC 宽度，用于单文件打开、切换 note、
+    /// 折叠/展开目录后自适应宽度。
+    ///
+    /// 计算口径与实际 cell 渲染保持一致：
+    /// - 只统计当前可见行（折叠中的子标题不参与，展开后下次再算）
+    /// - 行宽 = 左缩进 + chevron(12) + chevron→label 间距(2) + 标题文字宽度 + 右 padding(8)
+    /// - 上下限由 `EditorSplitView` 的 clamp 逻辑处理，这里只输出原始测量值。
+    func sizeThatFitsVisibleItems() -> CGFloat {
+        guard !visibleItems.isEmpty else { return 0 }
+        let font = NSFont.systemFont(ofSize: 12)
+        var measured: CGFloat = 0
+
+        for flatIndex in flatIndexByRow {
+            let item = items[flatIndex]
+            let indent = 4 + CGFloat(max(item.level - 1, 0)) * 12
+            let titleWidth = (item.title as NSString)
+                .size(withAttributes: [.font: font])
+                .width
+            // 右 padding 8，加上一点余量，避免单字宽度和 AA 渲染差异导致刚好截断
+            let rowWidth = indent + 12 + 2 + ceil(titleWidth) + 8 + 2
+            if rowWidth > measured {
+                measured = rowWidth
+            }
+        }
+        return measured
     }
 
     /// Marks the given flat item as the "current heading" (or clears the
@@ -346,8 +385,11 @@ final class EditorTOCView: NSView, NSTableViewDataSource, NSTableViewDelegate {
         highlightedIndex = nil
         setHighlightedIndex(highlight)
 
+        // 折叠/展开会改变“最长可见标题”，这里直接通知上层重算自适应宽度。
         DispatchQueue.main.async { [weak self] in
-            self?.isTogglingDisclosure = false
+            guard let self else { return }
+            self.onVisibilityChangedAfterDisclosure?()
+            self.isTogglingDisclosure = false
         }
     }
 

@@ -1103,6 +1103,15 @@ class ViewController:
         tocView.onSelectItem = { [weak self] item in
             self?.jumpToEditorTOCItem(item)
         }
+        // 用户在 TOC 里点 chevron 折叠/展开后，可见行集合会变化；
+        // 此时重新跑一次“自适应宽度”，让最长可见标题对应的宽度重新生效。
+        // 只在当前处于 Single Mode（双击单文件打开）的瞬态布局下才执行，避免项目视图下
+        // 用户已经手动调过 TOC 宽度时被 folding 反复覆盖。
+        tocView.onVisibilityChangedAfterDisclosure = { [weak self] in
+            guard let self else { return }
+            guard UserDefaultsManagement.isSingleMode else { return }
+            self.applyAdaptiveTOCWidth(persistPreferred: true)
+        }
 
         editorTOCContainerView.addSubview(tocView)
         NSLayoutConstraint.activate([
@@ -1128,6 +1137,15 @@ class ViewController:
         // it, or a new note), so re-evaluate the highlight against the fresh
         // item set instead of waiting for the next scroll event.
         updateEditorTOCHighlight()
+
+        // 标题集合发生变化后，最长可见标题很可能也变了：
+        // - 普通项目视图：如果用户之前已经用 divider 手动改过宽度，不覆盖（保持用户偏好）
+        // - 单文件 Single Mode 瞬态视图：应用新的自适应宽度，保证打开新 note、
+        //   折叠/展开、输入中新增/删除长标题时，TOC 宽度也能跟着调整。
+        guard UserDefaultsManagement.isSingleMode else { return }
+        DispatchQueue.main.async { [weak self] in
+            self?.applyAdaptiveTOCWidth(persistPreferred: true)
+        }
     }
 
     func jumpToEditorTOCItem(_ item: EditorTOCItem) {
@@ -1365,8 +1383,20 @@ class ViewController:
             DispatchQueue.main.async {
                 self.notesTableView.selectRow(index)
                 self.notesTableView.scrollRowToVisible(row: index, animated: false)
-                self.editArea.fill(note: note, options: .silent)
-                self.revealEditor()
+                // Single Mode 默认布局是“TOC + Preview”双栏，所以 fill 时显式
+                // 指定 previewOnly=true，确保 fill() 的渲染分支只刷新预览 WebView，
+                // 不把编辑器 textStorage 重新赋值（它是隐藏的）。
+                let options = FillOptions(
+                    highlight: true,
+                    saveTyping: false,
+                    force: true,
+                    needScrollToCursor: false,
+                    previewOnly: true
+                )
+                self.editArea.fill(note: note, options: options)
+                // 注意：这里不调用 revealEditor()，因为当前是预览独占布局，
+                // revealEditor 会把 editAreaScroll 的 alpha 动画设为 1，导致隐藏的
+                // 编辑器重新显示出来，破坏双栏布局。
             }
         } else {
             DispatchQueue.main.async {

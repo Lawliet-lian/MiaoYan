@@ -1210,7 +1210,7 @@ extension ViewController {
         scheduleSplitScrollSync()
     }
 
-    private func stopSplitScrollSync() {
+    func stopSplitScrollSync() {
         if let observer = splitScrollObserver {
             NotificationCenter.default.removeObserver(observer)
             splitScrollObserver = nil

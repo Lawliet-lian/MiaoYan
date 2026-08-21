@@ -3,10 +3,18 @@ import Cocoa
 @MainActor
 class EditorSplitView: ThemedSplitView {
     private enum TOCConstraints {
-        static let minWidth: CGFloat = 100
-        static let preferredWidth: CGFloat = 140
-        static let maxWidth: CGFloat = 260
+        // 目录栏宽度策略：
+        // - 最小宽度保持 180，避免短标题也挤得过窄，与项目长期使用的默认启动宽度对齐
+        // - 新增“自适应基准宽度”`sizeToFitWidth`，在打开文件/重建目录时按最长可见标题估算宽度
+        // - 最大宽度改为 320（原先 260 偏紧，会把中文 12~15 字以上的长标题截断）
+        // - 增加“预览区最小舒适宽度”`minPreviewWidth`，用于和 `minEditorWidth` 同时钳制，
+        //   避免 Single Mode 的“TOC + Preview”两栏布局下，目录过宽把预览压得过窄
+        static let minWidth: CGFloat = 180
+        static let preferredWidth: CGFloat = 180
+        static let sizeToFitMaxWidth: CGFloat = 320
+        static let maxWidth: CGFloat = 320
         static let minEditorWidth: CGFloat = 320
+        static let minPreviewWidth: CGFloat = 480
     }
 
     public var shouldHideDivider = false
@@ -138,6 +146,23 @@ class EditorSplitView: ThemedSplitView {
         return proposedEffectiveRect.insetBy(dx: 0, dy: -6)
     }
 
+    /// 按当前可用宽度（剩余空间）计算 TOC 合理上限：
+    /// - 硬上限 `TOCConstraints.maxWidth`
+    /// - 编辑器保留 `TOCConstraints.minEditorWidth`
+    /// - 预览保留 `TOCConstraints.minPreviewWidth`
+    /// 三条里取最紧的一条，保证“TOC + 预览 / TOC + 编辑 / TOC + 分屏”都不会把右栏压得太窄。
+    private func availableTOCMaxWidth() -> CGFloat {
+        guard subviews.count >= 3 else { return TOCConstraints.maxWidth }
+        let noteListWidth = subviews[0].isHidden ? 0 : subviews[0].frame.width
+        let base = noteListWidth + dividerThickness
+        let remaining = bounds.width - base - (dividerThickness * 2)
+        // 右侧最少要同时容纳编辑器和预览的最小值中的较大者：
+        // 在 split / previewOnly / editorOnly 三种布局里，只要比两者最小宽度都能满足，不会出现两栏之一被压崩。
+        let rightMinimumReserve = max(TOCConstraints.minEditorWidth, TOCConstraints.minPreviewWidth)
+        let clamped = remaining - rightMinimumReserve
+        return min(TOCConstraints.maxWidth, max(TOCConstraints.minWidth, clamped))
+    }
+
     private var minTOCDividerPosition: CGFloat {
         guard subviews.count >= 3 else { return 0 }
         return subviews[0].frame.width + dividerThickness + TOCConstraints.minWidth
@@ -145,12 +170,16 @@ class EditorSplitView: ThemedSplitView {
 
     private var maxTOCDividerPosition: CGFloat {
         guard subviews.count >= 3 else { return bounds.width }
-        // 与 configureTOCColumnIfNeeded 的上限口径保持一致：
-        // 拖拽时直接停在 TOC 最大宽度处，避免松手后被回弹截断。
         let base = subviews[0].frame.width + dividerThickness
-        let availableTOCWidth = bounds.width - base - dividerThickness - TOCConstraints.minEditorWidth
-        let maxTOCWidth = min(TOCConstraints.maxWidth, availableTOCWidth)
+        let maxTOCWidth = availableTOCMaxWidth()
         return max(minTOCDividerPosition, base + maxTOCWidth)
+    }
+
+    /// 给定“自适应推荐宽度”（来自 TOC 最长可见标题测算），返回夹取后的合法 TOC 宽度。
+    /// 这个宽度会在 `EditorSplitView` 允许的上下限内，并且不侵占预览/编辑器的最小宽度。
+    func clampedAdaptiveTOCWidth(proposed: CGFloat) -> CGFloat {
+        let clampedMax = availableTOCMaxWidth()
+        return max(TOCConstraints.minWidth, min(proposed, clampedMax))
     }
 
     private func configureTOCColumnIfNeeded() {
@@ -158,11 +187,7 @@ class EditorSplitView: ThemedSplitView {
         guard subviews[1].isHidden == false else { return }
 
         let currentTOCWidth = subviews[1].frame.width
-        let availableMaxWidth = max(
-            TOCConstraints.minWidth,
-            bounds.width - subviews[0].frame.width - TOCConstraints.minEditorWidth - (dividerThickness * 2)
-        )
-        let maxWidth = min(TOCConstraints.maxWidth, availableMaxWidth)
+        let maxWidth = availableTOCMaxWidth()
 
         let targetTOCWidth: CGFloat
         if currentTOCWidth <= Theme.Metrics.collapsedSplitWidthEpsilon || currentTOCWidth > maxWidth {
@@ -193,11 +218,8 @@ class EditorSplitView: ThemedSplitView {
         if visible {
             tocView.isHidden = false
 
-            let availableMaxWidth = max(
-                TOCConstraints.minWidth,
-                bounds.width - noteListWidth - TOCConstraints.minEditorWidth - (dividerThickness * 2)
-            )
-            let targetWidth = min(max(TOCConstraints.minWidth, preferredTOCWidth), min(TOCConstraints.maxWidth, availableMaxWidth))
+            let maxWidth = availableTOCMaxWidth()
+            let targetWidth = min(max(TOCConstraints.minWidth, preferredTOCWidth), maxWidth)
             setPosition(collapsePosition + targetWidth, ofDividerAt: 1)
         } else {
             tocView.isHidden = true

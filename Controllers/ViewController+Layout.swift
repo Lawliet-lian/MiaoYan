@@ -9,6 +9,11 @@ extension ViewController {
         static let maxSidebarWidth: CGFloat = 280
         static let defaultNotelistWidth: CGFloat = 280
         static let defaultStartupTOCWidth: CGFloat = 180
+        /// 自适应宽度的“上限软约束”：按最长可见标题测算后，如果大于这个值就收敛到这里，
+        /// 避免某篇文档标题超长把目录拉得过宽，导致预览区比例不协调。
+        /// 这个值必须和 EditorSplitView.TOCConstraints.maxWidth(320) 保持一致或更小，
+        /// 让真正的硬上限仍然只在 split view 里一处维护。
+        static let adaptiveTOCCapWidth: CGFloat = 320
         static let narrowThreshold: CGFloat = 50
         static let searchTopSidebarCollapsed: CGFloat = 30.0
         static let searchTopNormal: CGFloat = 13.0
@@ -116,6 +121,41 @@ extension ViewController {
         sessionPresentationMode || sessionMagicPPTMode
     }
 
+    /// 计算“按当前文档最长可见标题估算”的 TOC 自适应宽度，
+    /// 已经做过“最小宽 / 最大软上限 / editorSplitView 硬上限”的三层夹取，
+    /// 调用方直接用来设置 `preferredTOCWidth` 或重新布局即可。
+    /// - parameter persistPreferred: 是否在本次调用后，把自适应结果写入 `preferredTOCWidth` 内存值。
+    private func calculateAdaptiveTOCWidth(persistPreferred: Bool) -> CGFloat {
+        let raw = editorTOCView?.sizeThatFitsVisibleItems() ?? 0
+        let softCapped: CGFloat
+        if raw <= 0 {
+            softCapped = LayoutConstants.defaultStartupTOCWidth
+        } else {
+            softCapped = min(raw, LayoutConstants.adaptiveTOCCapWidth)
+        }
+        let clamped = splitView.clampedAdaptiveTOCWidth(proposed: softCapped)
+        if persistPreferred {
+            splitView.preferredTOCWidth = clamped
+        }
+        return clamped
+    }
+
+    /// 把 TOC 宽度调整为“按当前文档可见最长标题估算 + 与预览区宽度协调”的自适应值。
+    /// - parameter persistPreference: 是否在本次调用后，把自适应结果写入 `preferredTOCWidth` 内存值。
+    ///   默认 `true`，这样随后的 divider 拖拽、layout 重建会沿用这次自适应值。
+    ///   （不会写入 UserDefaults，避免覆盖用户之前手动拖拽的持久化记忆，只有用户拖拽结束才会持久化）
+    func applyAdaptiveTOCWidth(persistPreferred: Bool = true) {
+        let target = calculateAdaptiveTOCWidth(persistPreferred: persistPreferred)
+        guard splitView.subviews.count >= 3, !splitView.subviews[1].isHidden else { return }
+        let noteListWidth = splitView.subviews[0].isHidden ? 0 : splitView.subviews[0].frame.width
+        let dividerThickness = splitView.dividerThickness
+        let dividerPosition = noteListWidth + dividerThickness + target
+        let currentPosition = noteListWidth + dividerThickness + splitView.subviews[1].frame.width
+        guard abs(dividerPosition - currentPosition) > 0.5 else { return }
+        splitView.setPosition(dividerPosition, ofDividerAt: 1)
+        splitView.layoutSubtreeIfNeeded()
+    }
+
     func setSidebarVisible(_ visible: Bool, saveState: Bool = true) {
         if visible, isEnforcingDefaultStartupLayout, !UserDefaultsManagement.isSingleMode {
             return
@@ -166,7 +206,9 @@ extension ViewController {
     /// combination. The default is:
     /// - hide sidebar and note list
     /// - show native TOC with a reasonable fixed width
-    /// - force split mode so editor and preview share the remaining width 50/50
+    /// - enter preview-only mode so the right side is preview alone, forming
+    ///   a "TOC + Preview" two-column reading layout, matching the user
+    ///   expectation that the app opens straight into a reading view.
     func applyDefaultStartupThreeColumnLayout() {
         guard !UserDefaultsManagement.isSingleMode else { return }
 
@@ -177,39 +219,105 @@ extension ViewController {
         splitView.preferredTOCWidth = LayoutConstants.defaultStartupTOCWidth
         setEditorTOCVisible(true, saveState: false)
 
-        UserDefaultsManagement.editorContentSplitPosition = 0
-        sessionSplitMode = true
-        applyEditorModePreferenceChange()
+        // Switch to "TOC + Preview" two columns: hide editor, show preview.
+        // We mirror the enablePreview core layout steps but without the extra
+        // side effects (first-responder changes, scroll restore) because this
+        // is the initial deterministic layout at launch, not a user toggle.
+        sessionSplitMode = false
+        sessionPreviewMode = true
+
+        previewScrollView?.isHidden = false
+        // makePreviewContainer 保证 markdownView 存在并挂在 previewScrollView 上，
+        // 否则 fill() 里就算 shouldRenderPreview=true，也可能没有渲染目标导致预览空白。
+        preparePreviewContainer(hidden: false)
+        editArea.markdownView?.isHidden = false
+        editAreaScroll.isHidden = true
+        editArea.usesFindBar = false
+        editAreaScroll.hasVerticalScroller = false
+        editAreaScroll.hasHorizontalScroller = false
+        previewScrollView?.hasVerticalScroller = true
+        stopSplitScrollSync()
+        editorContentSplitView?.setDisplayMode(.previewOnly, animated: false)
+        editArea.markdownView?.setSplitChrome(false)
+        UserDefaultsManagement.editorContentSplitPosition = 100
+        updateToolbarButtonTints()
 
         view.layoutSubtreeIfNeeded()
         splitView.layoutSubtreeIfNeeded()
         editorContentSplitView?.layoutSubtreeIfNeeded()
+
+        // 注意：viewDidAppear 的时序是先 configureNotesList + 默认 note fill()，
+        // 再执行 applyDefaultStartupThreeColumnLayout()。由于 fill 发生时 sessionPreviewMode
+        // 还是 false，shouldRenderPreview=false 会让预览 WebView 跳过渲染，导致预览看起来是空白的。
+        // 这里显式触发一次 refill，强制以 previewOnly 模式刷新当前选中 note 的预览。
+        refillEditArea(previewOnly: true, force: true)
     }
 
     /// Single-file open should start from the same visual baseline as a clean
     /// app launch instead of inheriting the project browser layout. This path
     /// is intentionally transient:
     /// - keep sidebar + note list collapsed
-    /// - keep native TOC visible with the default width
-    /// - force editor + preview back to a balanced side-by-side split
+    /// - keep native TOC visible, width adapted to the current note's longest
+    ///   visible heading (capped to a reasonable maximum so the preview stays
+    ///   readable)
+    /// - put the editor/preview split into preview-only mode so the screen
+    ///   reads as "TOC + Preview" two columns, which matches the reader-like
+    ///   expectation when opening a single markdown file from Finder.
     ///
     /// We avoid persisting sidebar / note list visibility here because opening
     /// one file from Finder should not rewrite the user's normal library
     /// layout preferences.
     func applySingleFileOpenThreeColumnLayout() {
+        // 第一步：隐藏项目侧栏和笔记列表，确保不再出现 5 栏 / 3 栏布局。
         collapseNotelist(saveState: false)
+        // 第二步：先保证“原生目录”处于可见状态，但宽度先写一个可被自适应覆盖的占位默认值。
         splitView.preferredTOCWidth = LayoutConstants.defaultStartupTOCWidth
         setEditorTOCVisible(true, saveState: false)
 
-        // Reset the content split ratio for this entry path so a previously
-        // saved editor-only / uneven split cannot leak into single-file open.
-        UserDefaultsManagement.editorContentSplitPosition = 0
-        sessionSplitMode = true
-        applyEditorModePreferenceChange()
+        // 第三步：直接进入预览独占模式（等价于 enablePreview 的核心布局子步骤），
+        // 不通过 enablePreview 本身走，是因为那里面包含了“保存编辑选区/滚动条位置、
+        // 强制 refill editArea、给 preview 设置 first responder”等只有“用户手动切模式”
+        // 才需要的副作用，而双击打开文件的默认布局只需要把右侧显示成预览即可。
+        sessionSplitMode = false
+        sessionPreviewMode = true
+        // 由于 applyEditorModePreferenceChange 的 disabledSplitView 会把 markdownView 置为 isHidden，
+        // 要在它之后再显式打开 preview scroll & markdownView；为了减少相互覆盖，
+        // 我们直接按 previewOnly 的最小步骤手动排布，不再依赖 applyEditorModePreferenceChange。
+        //
+        // 核心：
+        //  - editorScrollView(editAreaScroll) 隐藏，previewScrollView 显示
+        //  - editArea.markdownView 显示（在 previewScrollView.documentView 中显示）
+        //  - content split view 设为 .previewOnly，保证右侧剩余宽度全部给预览
+        //  - 关闭 split 模式的 split chrome 样式
+        //  - 关闭 split scroll 同步
+        //  - toolbar 按钮高亮到“预览”态
+        previewScrollView?.isHidden = false
+        // preparePreviewContainer 保证 MPreviewView 实例存在并挂载到 previewScrollView.documentView
+        // （首次打开时 editArea.markdownView 可能为 nil，缺少这一步会导致预览空白）
+        preparePreviewContainer(hidden: false)
+        editArea.markdownView?.isHidden = false
+        editAreaScroll.isHidden = true
+        editArea.usesFindBar = false
+        editAreaScroll.hasVerticalScroller = false
+        editAreaScroll.hasHorizontalScroller = false
+        previewScrollView?.hasVerticalScroller = true
+        stopSplitScrollSync()
+        editorContentSplitView?.setDisplayMode(.previewOnly, animated: false)
+        editArea.markdownView?.setSplitChrome(false)
+        UserDefaultsManagement.editorContentSplitPosition = 100
+        updateToolbarButtonTints()
 
+        // 第四步：等待 AppKit 第一次 layout 完成、TOC 视图已填充可见行，
+        //         再按最长可见标题估算一次自适应宽度。
+        // 这里用 Dispatch 两跳 + viewDidLayout 保证 bounds 不是 0，避免夹取时“剩余可用宽=0”把 TOC 挤成最小宽。
         view.layoutSubtreeIfNeeded()
         splitView.layoutSubtreeIfNeeded()
         editorContentSplitView?.layoutSubtreeIfNeeded()
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.applyAdaptiveTOCWidth(persistPreferred: true)
+        }
     }
 
     /// Restores the user-selected sidebar / note list visibility after the

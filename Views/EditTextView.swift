@@ -669,6 +669,14 @@ class EditTextView: NSTextView, @preconcurrency NSTextFinderClient {
         }
 
         if options.previewOnly || (shouldRenderPreview && !isSplitModeActive) {
+            // 注意：preview-only 模式下编辑器视图是隐藏的，但原生 TOC 解析使用的
+            // 是 editArea.string（即 textStorage 的纯文本）。如果此时 textStorage
+            // 还是空的，TOC 会解析出空数组，显示"暂无标题"。因此这里必须把 note
+            // 的原始内容同步写入 textStorage，确保 TOC parser 有输入源。
+            // 使用 publishStorage 同步设置 storageNote，确保后续如果用户切换到
+            // 编辑模式、或触发 saveTextStorageContent，buffer ownership 能通过
+            // owner.isEqualURL 校验，避免 #543 跨 note 写入问题。
+            publishStorage(note.content, owner: note)
             return
         }
         guard let storage = textStorage else { return }
